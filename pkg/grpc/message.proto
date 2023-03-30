@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+package proto;
+
+option go_package = "github.com/Nextsummer/micro/pkg/grpc";
+
+service Message {
+  rpc RemoteNodeInfo(RemoteServerNode) returns (RemoteServerNodeResponse) {}
+  rpc send(stream MessageEntity) returns (stream MessageResponse) {}
+}
+
+message RemoteServerNodeResponse {
+  int32 code = 1;
+  bool success = 2;
+  string message = 3;
+  RemoteServerNode data = 4;
+}
+
+// remote server node data
+message RemoteServerNode {
+  int32 nodeId = 1;                   // 节点id
+  bool isControllerCandidate = 2;     // 是否为controller候选节点
+  bool isController = 3;              // 自己是否为controller
+  string ip = 4;                      // 节点的ip地址
+  int32 clientPort = 5;               // 面向客户端的端口号
+  int32 InternPort = 6;               // 节点内部通信的TCP端口号
+}
+
+message MessageEntity {
+  enum MessageType {
+      TERMINATE_MESSAGE = 0;
+  }
+  string requestId = 1;
+  MessageType type = 2;
+  bytes data = 3;
+}
+
+message MessageResponse {
+  int32 code = 1;
+  bool success = 2;
+  string message = 3;
+  MessageEntity data = 4;
+}
