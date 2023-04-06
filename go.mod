@@ -3,7 +3,8 @@ module github.com/Nextsummer/micro
 go 1.19
 
 require (
-	github.com/sirupsen/logrus v1.9.0
+	github.com/google/uuid v1.3.0
+	github.com/orcaman/concurrent-map/v2 v2.0.1
 	google.golang.org/grpc v1.54.0
 	google.golang.org/protobuf v1.30.0
 )

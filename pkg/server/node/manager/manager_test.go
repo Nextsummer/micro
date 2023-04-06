@@ -5,9 +5,11 @@ import (
 	"fmt"
 	pkgrpc "github.com/Nextsummer/micro/pkg/grpc"
 	"github.com/Nextsummer/micro/pkg/queue"
-	log "github.com/sirupsen/logrus"
+	cmap "github.com/orcaman/concurrent-map/v2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/protobuf/proto"
+	"log"
 	"net"
 	"testing"
 	"time"
@@ -51,14 +53,13 @@ func TestGrpcClient(t *testing.T) {
 	}
 	messageClientStream, err := pkgrpc.NewMessageClient(conn).Send(context.TODO())
 	if err != nil {
-		log.Error("new message client stream err: ", err)
+		log.Fatal("new message client stream err: ", err)
 	}
 
 	startServerIOThreads(2, messageClientStream)
 
 	for IsRunning() {
-
-		sendQueue := GetServerNetworkManagerInstance().sendQueues[2]
+		sendQueue, _ := GetServerNetworkManagerInstance().sendQueues.Get(2)
 		sendQueue.Put(pkgrpc.MessageEntity{RequestId: "1001", Type: pkgrpc.MessageEntity_TERMINATE_MESSAGE})
 		time.Sleep(time.Second * 5)
 
@@ -85,10 +86,53 @@ func TestGrpcServer(t *testing.T) {
 	// 4.启动服务端
 	err = grpcServer.Serve(listener)
 	if err != nil {
-		log.Error(err)
+		log.Fatal(err)
 	}
 
 	for {
 		time.Sleep(time.Second * 10)
 	}
+}
+
+func TestBytesBuffer(t *testing.T) {
+
+	node := pkgrpc.ControllerVote{VoterNodeId: 313213, VoteRound: 2}
+	marshal, err := proto.Marshal(&node)
+	if err != nil {
+		log.Println(err)
+	}
+
+	log.Println(marshal)
+
+	serverNode := &pkgrpc.ControllerVote{}
+	err = proto.Unmarshal(marshal, serverNode)
+	if err != nil {
+		log.Println(err)
+	}
+	log.Println(serverNode)
+
+}
+
+func TestSyncMap(t *testing.T) {
+	m := cmap.New[string]()
+	m.Set("1", "1")
+
+	currentMap := cmap.NewWithCustomShardingFunction[int32, *queue.Array[string]](Int32HashCode)
+
+	array := queue.NewArray[string]()
+	array.Put("str")
+	array.Put("str2")
+	array.Put("str3")
+
+	currentMap.Set(1, array)
+	array.Put("str4")
+
+	array2 := queue.NewArray[string]()
+	array2.Put("str")
+	array2.Put("str2")
+	currentMap.Set(2, array2)
+
+	log.Println(currentMap.Get(1))
+	log.Println(currentMap.Get(2))
+
 }

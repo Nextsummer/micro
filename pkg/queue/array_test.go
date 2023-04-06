@@ -1,7 +1,7 @@
 package queue
 
 import (
-	log "github.com/sirupsen/logrus"
+	"github.com/Nextsummer/micro/pkg/log"
 	"testing"
 )
 
@@ -12,15 +12,15 @@ func TestClearAndClone(t *testing.T) {
 	array.Put("string2")
 	array.Put("string3")
 
-	log.Printf("src array: %v, len: %v, cap: %v", array, len(array.t), cap(array.t))
+	log.Info.Printf("src array: %v, len: %v, cap: %v", array, len(array.t), cap(array.t))
 
-	clone := array.ClearAndClone()
+	clone := array.ClearAndIter()
 
-	log.Printf("clone array: %v, len: %v, cap: %v", clone, len(clone), cap(clone))
-	log.Printf("clone after array: %v, len: %v, cap: %v", array, len(array.t), cap(array.t))
+	log.Info.Printf("clone array: %v, len: %v, cap: %v", clone, len(clone), cap(clone))
+	log.Info.Printf("clone after array: %v, len: %v, cap: %v", array, len(array.t), cap(array.t))
 
 	array.Put("4")
 
-	log.Printf("put after array: %v, len: %v, cap: %v", array, len(array.t), cap(array.t))
+	log.Info.Printf("put after array: %v, len: %v, cap: %v", array, len(array.t), cap(array.t))
 
 }

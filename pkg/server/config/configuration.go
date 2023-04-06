@@ -2,7 +2,7 @@ package config
 
 import (
 	"bufio"
-	log "github.com/sirupsen/logrus"
+	"github.com/Nextsummer/micro/pkg/log"
 	"io"
 	"os"
 	"regexp"
@@ -66,20 +66,19 @@ func Parse(configPath string) {
 	configuration.ControllerCandidateServers = validateControllerCandidateServers(configMap[ControllerCandidateServers])
 	configuration.heartbeatCheckInterval = validateHeartbeatCheckInterval(configMap[HeartbeatCheckInterval])
 	configuration.heartbeatTimeoutPeriod = validateHeartbeatTimeoutPeriod(configMap[HeartbeatTimeoutPeriod])
-	printConfigLog()
 }
 
 // 加载配置文件
 func loadConfigurationFile(configPath string) map[string]any {
 	if len(configPath) <= 0 {
-		log.Fatalln("配置文件地址不能为空！！！")
+		log.Error.Fatalln("配置文件地址不能为空！！！")
 	}
 
 	file, err := os.Open(configPath)
 	defer file.Close()
 
 	if err != nil {
-		log.Fatalf("config file read error, config path [%v], err: %v", configPath, err)
+		log.Error.Fatalf("config file read error, config path [%v], err: %v", configPath, err)
 	}
 
 	reader := bufio.NewReader(file)
@@ -91,7 +90,7 @@ func loadConfigurationFile(configPath string) map[string]any {
 			break
 		}
 		if err != nil {
-			log.Fatalf("config file read error, config path [%v], err: %v", configPath, err)
+			log.Error.Fatalf("config file read error, config path [%v], err: %v", configPath, err)
 		}
 		lineStr := string(line)
 		if len(lineStr) > 0 && len(strings.Split(lineStr, "=")) == 2 {
@@ -135,11 +134,11 @@ func validateIsControllerCandidate(isControllerCandidate any) bool {
 	if nodeClientTcpPortStr == "true" || nodeClientTcpPortStr == "false" {
 		nodeClientTcpPortBool, err := strconv.ParseBool(nodeClientTcpPortStr)
 		if err != nil {
-			log.Fatalf("parse "+IsControllerCandidate+" [%v] to int type error, err: %v", nodeClientTcpPortStr, err)
+			log.Error.Fatalf("parse %v [%v] to int type error, err: %v", IsControllerCandidate, nodeClientTcpPortStr, err)
 		}
 		return nodeClientTcpPortBool
 	}
-	log.Fatalln("[" + IsControllerCandidate + "] The parameter must be is 'true' or 'false'!")
+	log.Error.Fatalf("[%v] The parameter must be is 'true' or 'false'!", IsControllerCandidate)
 	return false
 }
 
@@ -192,7 +191,7 @@ func validateIntType(data any, errType string) int32 {
 
 	dataInt, err := strconv.ParseInt(dataStr, 10, 32)
 	if err != nil {
-		log.Fatalf("parse "+errType+" [%v] to int type error, err: %v", dataStr, err)
+		log.Error.Fatalf("parse %v [%v] to int type error, err: %v", errType, dataStr, err)
 	}
 	return int32(dataInt)
 }
@@ -200,7 +199,7 @@ func validateIntType(data any, errType string) int32 {
 func validateStringType(data any, errType string) string {
 	dataStr := data.(string)
 	if len(dataStr) <= 0 {
-		log.Fatalln("[" + errType + "] The parameter cannot be null!")
+		log.Error.Fatalf("[%v] The parameter cannot be null!", errType)
 	}
 	return dataStr
 }
@@ -208,23 +207,23 @@ func validateStringType(data any, errType string) string {
 func validateRegexp(data string, regex string, errMsg string) {
 	compile, _ := regexp.Compile(regex)
 	if !compile.Match([]byte(data)) {
-		log.Fatalln(errMsg)
+		log.Error.Println(errMsg)
 	}
 }
 
-func printConfigLog() {
+func PrintConfigLog() {
 	configuration := GetConfigurationInstance()
-	log.Infof("[%v]=%v", NodeId, configuration.NodeId)
-	log.Infof("[%v]=%v", NodeIp, configuration.NodeIp)
-	log.Infof("[%v]=%v", NodeInternTcpPort, configuration.NodeInternTcpPort)
-	log.Infof("[%v]=%v", NodeClientHttpPort, configuration.nodeClientHttpPort)
-	log.Infof("[%v]=%v", NodeClientTcpPort, configuration.NodeClientTcpPort)
-	log.Infof("[%v]=%v", IsControllerCandidate, configuration.IsControllerCandidate)
-	log.Infof("[%v]=%v", ClusterNodeCount, configuration.ClusterNodeCount)
-	log.Infof("[%v]=%v", DataDir, configuration.dataDir)
-	log.Infof("[%v]=%v", ControllerCandidateServers, configuration.ControllerCandidateServers)
-	log.Infof("[%v]=%v", HeartbeatCheckInterval, configuration.heartbeatCheckInterval)
-	log.Infof("[%v]=%v", HeartbeatTimeoutPeriod, configuration.heartbeatTimeoutPeriod)
+	log.Info.Printf("[%v]=%v", NodeId, configuration.NodeId)
+	log.Info.Printf("[%v]=%v", NodeIp, configuration.NodeIp)
+	log.Info.Printf("[%v]=%v", NodeInternTcpPort, configuration.NodeInternTcpPort)
+	log.Info.Printf("[%v]=%v", NodeClientHttpPort, configuration.nodeClientHttpPort)
+	log.Info.Printf("[%v]=%v", NodeClientTcpPort, configuration.NodeClientTcpPort)
+	log.Info.Printf("[%v]=%v", IsControllerCandidate, configuration.IsControllerCandidate)
+	log.Info.Printf("[%v]=%v", ClusterNodeCount, configuration.ClusterNodeCount)
+	log.Info.Printf("[%v]=%v", DataDir, configuration.dataDir)
+	log.Info.Printf("[%v]=%v", ControllerCandidateServers, configuration.ControllerCandidateServers)
+	log.Info.Printf("[%v]=%v", HeartbeatCheckInterval, configuration.heartbeatCheckInterval)
+	log.Info.Printf("[%v]=%v", HeartbeatTimeoutPeriod, configuration.heartbeatTimeoutPeriod)
 }
 
 // GetOtherControllerCandidateServers 获取除自己以外的其他controller候选节点的地址

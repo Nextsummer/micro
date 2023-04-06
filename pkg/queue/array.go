@@ -37,17 +37,27 @@ func (a *Array[T]) Take() (T, bool) {
 }
 
 func (a *Array[T]) Size() int {
+	a.RWMutex.RLock()
+	defer a.RWMutex.RUnlock()
 	return len(a.t)
 }
 
 func (a *Array[T]) IsEmpty() bool {
+	a.RWMutex.RLock()
+	defer a.RWMutex.RUnlock()
 	return len(a.t) == 0
 }
 
-func (a *Array[T]) ClearAndClone() []T {
+func (a *Array[T]) ClearAndIter() []T {
 	a.Lock()
 	defer a.Unlock()
 	t := a.t
 	a.t = make([]T, 0)
 	return t
+}
+
+func (a *Array[T]) Iter() []T {
+	a.RWMutex.RLock()
+	defer a.RWMutex.RUnlock()
+	return a.t
 }

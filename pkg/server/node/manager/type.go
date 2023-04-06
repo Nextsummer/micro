@@ -1,6 +1,10 @@
 package manager
 
-import "sync"
+import (
+	"fmt"
+	"hash/fnv"
+	"sync"
+)
 
 const (
 	commonNode = iota // 普通master 节点
@@ -45,6 +49,19 @@ func isCandidate() bool {
 
 func isCommonNode() bool {
 	return getServerNodeRoleInstance().role == commonNode
+}
+
+func getServerNodeRole(role int) string {
+	serverNodeRole := "Controller"
+	switch role {
+	case commonNode:
+		serverNodeRole = "普通master"
+	case candidate:
+		serverNodeRole = "Controller候选节点"
+	case controller:
+		serverNodeRole = "Controller"
+	}
+	return serverNodeRole
 }
 
 var controllerNodeOnce sync.Once
@@ -111,4 +128,10 @@ func Fatal() {
 
 func IsFatal() bool {
 	return getNodeStatusInstance().status == fatal
+}
+
+var Int32HashCode = func(key int32) uint32 {
+	hash := fnv.New32()
+	hash.Write([]byte(fmt.Sprintf("%v", key)))
+	return hash.Sum32() >> 24
 }

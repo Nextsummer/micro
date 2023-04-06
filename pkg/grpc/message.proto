@@ -28,7 +28,8 @@ message RemoteServerNode {
 
 message MessageEntity {
   enum MessageType {
-      TERMINATE_MESSAGE = 0;
+      TERMINATE_MESSAGE = 0;    // 终止运行消息
+      VOTE = 1;                 // 投票消息类型
   }
   string requestId = 1;
   MessageType type = 2;
@@ -40,4 +41,10 @@ message MessageResponse {
   bool success = 2;
   string message = 3;
   MessageEntity data = 4;
+}
+
+message ControllerVote {
+  int32 voterNodeId = 1;      // 投票节点id
+  int32 controllerNodeId = 2; // 投票给的那个controller节点id
+  int32 voteRound = 3;        // 投票的轮次
 }
