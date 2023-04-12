@@ -9,7 +9,6 @@ import (
 	"github.com/Nextsummer/micro/pkg/log"
 	"github.com/Nextsummer/micro/pkg/queue"
 	"github.com/Nextsummer/micro/pkg/server/config"
-	"github.com/Nextsummer/micro/pkg/utils"
 	"github.com/google/uuid"
 	cmap "github.com/orcaman/concurrent-map/v2"
 	"google.golang.org/grpc"
@@ -408,7 +407,7 @@ func (s *server) Send(stream pkgrpc.Message_SendServer) error {
 			return err
 		}
 
-		log.Info.Println("request message received: ", utils.ToJson(*message))
+		//log.Info.Println("request message received: ", utils.ToJson(*message))
 		GetServerNetworkManagerInstance().receiveQueue.Put(*message)
 		sendQueues := GetServerNetworkManagerInstance().sendQueues
 		for item := range sendQueues.IterBuffered() {

@@ -1,165 +1,266 @@
 package manager
 
 import (
+	"fmt"
 	pkgrpc "github.com/Nextsummer/micro/pkg/grpc"
 	"github.com/Nextsummer/micro/pkg/log"
 	"github.com/Nextsummer/micro/pkg/queue"
 	"github.com/Nextsummer/micro/pkg/server/config"
+	"github.com/Nextsummer/micro/pkg/server/node/persist"
 	"github.com/Nextsummer/micro/pkg/utils"
 	cmap "github.com/orcaman/concurrent-map/v2"
+	"math/rand"
 	"sync"
+	"time"
 )
-
-// 槽位分配存储文件类型
-type storageType string
 
 const (
-	SlotsAllocationFilename        storageType = "slot_allocation"
-	SlotsReplicaAllocationFilename storageType = "slot_replica_allocation"
-	ReplicaNodeIdsFilename         storageType = "replica_node_ids"
+	SlotsCount                     = 16384                      // slot槽位的总数量
+	SlotsAllocationFilename        = "slots_allocation"         // 槽位分配存储文件的名字
+	SlotsReplicaAllocationFilename = "slots_replica_allocation" // 槽位分配存储文件的名字
+	ReplicaNodeIdsFilename         = "replica_node_ids"
+	NodeSlotsFilename              = "node_slots" // 槽位分配存储文件的名字
+	NodeSlotsReplicasFilename      = "node_slots_replicas"
 )
 
-var controllerCandidateOnce sync.Once
-var controllerCandidate *ControllerCandidate
+var controllerOnce sync.Once
+var controllerInstance *Controller
 
-type ControllerCandidate struct {
-	voteRound              int32                                           // 投票轮次
-	currentVote            pkgrpc.ControllerVote                           // 当前的一个投票
-	slotsAllocation        cmap.ConcurrentMap[int32, *queue.Array[string]] // 槽位分配数据
+type Controller struct {
+	slotsAllocation        cmap.ConcurrentMap[int32, *queue.Array[string]]
 	slotsReplicaAllocation cmap.ConcurrentMap[int32, *queue.Array[string]]
 	replicaNodeIds         cmap.ConcurrentMap[int32, int32]
+	startTimestamp         int64
 }
 
-func GetControllerCandidateInstance() *ControllerCandidate {
-	controllerNodeOnce.Do(func() {
-		controllerCandidate = &ControllerCandidate{
+func getControllerInstance() *Controller {
+	controllerOnce.Do(func() {
+		controllerInstance = &Controller{
 			slotsAllocation:        cmap.NewWithCustomShardingFunction[int32, *queue.Array[string]](Int32HashCode),
 			slotsReplicaAllocation: cmap.NewWithCustomShardingFunction[int32, *queue.Array[string]](Int32HashCode),
 			replicaNodeIds:         cmap.NewWithCustomShardingFunction[int32, int32](Int32HashCode),
+			startTimestamp:         time.Now().Unix(),
 		}
 	})
-	return controllerCandidate
+	return controllerInstance
 }
 
-// Initiate controller election
-func (c *ControllerCandidate) electController() int {
+// Assign slots to all master machines
+func (c *Controller) allocateSlots() {
+	c.executeSlotsAllocation()
+
+	// For the slot range for which each node is responsible, the copy of the slot range is calculated to assign to the other node.
+	// Let's say you have four nodes, and each node is allocated a slot range.
+	// For node 1, its slot range copy is randomly selected among the other three nodes, node 234, and so on.
+	// A copy of the slot range is allocated and, once calculated, persisted on local disk and synchronized to another master candidate.
+	c.executeSlotsReplicaAllocation()
+
+	// Write slot assignment data to the local disk file
+	if !c.persistSlotsAllocation() || !c.persistSlotsReplicaAllocation() || !c.persistReplicaNodeIds() {
+		Fatal()
+		return
+	}
+
+	// The slots are allocated and persisted in the Controller's own memory as well as on disk.
+	// The Controller is responsible for sending slot allocation data to other Controller candidates.
+	// Other Controller candidates need to maintain a copy of slot allocation data in their own memory and persist it to disk.
+	c.syncSlotsAllocation()
+	c.syncSlotsReplicaAllocation()
+	c.syncReplicaNodeIds()
+
+	// The Controller initializes the slot data internally.
+	c.initSlots()
+	// The copy of the slot range for which you are responsible is initialized in memory and also persisted to disk.
+	c.initSlotsReplicas()
+	// Tell each node which slot range it is responsible for, and which other nodes have a copy of that slot range.
+	c.initReplicaNodeId()
+
+	// In addition to sending the complete slot allocation data to the other candidates,
+	// He needs to send each master their respective slot range, and each master does a slot initialization in memory,
+	// You also need to do a persistence on the local disk.
+	c.sendNodeSlots()
+	// The node initializes its own range of slots in memory,
+	// It also initializes and persists a copy of the slot scope for which it is responsible.
+	c.sendNodeSlotsReplicas()
+	c.sendReplicaNodeId()
+
+}
+
+// Initialize controller node data
+func (c *Controller) initControllerNode() {
+	SetControllerNodeId(config.GetConfigurationInstance().NodeId)
+}
+
+// Calculate slot assignment data
+func (c *Controller) executeSlotsAllocation() {
 	nodeId := config.GetConfigurationInstance().NodeId
+	remoteMasterNodes := GetRemoteServerNodeManagerInstance().getRemoteServerNodes()
 
-	otherControllerCandidates := GetRemoteServerNodeManagerInstance().getOtherControllerCandidates()
-	log.Info.Println("Other Controller candidates include: ", utils.ToJson(otherControllerCandidates))
-	// Initialize your ballot for the first round
-	c.voteRound = 1
-	c.currentVote = pkgrpc.ControllerVote{VoterNodeId: nodeId, ControllerNodeId: nodeId, VoteRound: c.voteRound}
+	totalMasterNodeCount := len(remoteMasterNodes) + 1
+	// Calculate how many slots each master node is allocated to on average
+	slotsPerMasterNode := SlotsCount / totalMasterNodeCount
+	// Calculate the number of slots allocated to the controller, and add more if any
+	remainSlotsCount := SlotsCount - slotsPerMasterNode*totalMasterNodeCount
 
-	success := false
-	controllerNodeId := int32(0)
+	// Initializes the number of slots for each master node
+	nextStartSlot := 1
+	nextEndSlot := nextStartSlot - 1 + slotsPerMasterNode
 
-	// Start a new round of voting
-	controllerNodeIdTemp, ok := c.startNextRoundVote(otherControllerCandidates)
-	success = ok
-	controllerNodeId = controllerNodeIdTemp
-	// If the first ballot doesn't figure out who the controller is
-	for !success {
-		controllerNodeIdTemp, ok := c.startNextRoundVote(otherControllerCandidates)
-		success = ok
-		controllerNodeId = controllerNodeIdTemp
+	for _, remoteMasterNode := range remoteMasterNodes {
+		slotsList := queue.NewArray[string]()
+		slotsList.Put(fmt.Sprintf("%d,%d", nextStartSlot, nextEndSlot))
+		c.slotsAllocation.Set(remoteMasterNode.GetNodeId(), slotsList)
+		nextStartSlot = nextEndSlot + 1
+		nextEndSlot = nextStartSlot - 1 + slotsPerMasterNode
 	}
 
-	// Found out who the controller is by voting
-	if nodeId == controllerNodeId {
-		return controller
-	}
-	return candidate
+	slotsList := queue.NewArray[string]()
+	slotsList.Put(fmt.Sprintf("%d,%d", nextStartSlot, nextEndSlot+remainSlotsCount))
+	c.slotsAllocation.Set(nodeId, slotsList)
+	log.Info.Println("The slots are allocated: ", utils.ToJson(c.slotsAllocation))
 }
 
-// start the next round of voting
-func (c *ControllerCandidate) startNextRoundVote(otherControllerCandidates []pkgrpc.RemoteServerNode) (int32, bool) {
+// Perform the assignment of a copy of slots
+func (c *Controller) executeSlotsReplicaAllocation() {
+	nodeIds := queue.NewArray[int32]()
+	nodeId := config.GetConfigurationInstance().NodeId
+	nodeIds.Put(nodeId)
 
-	log.Info.Printf("Voting begins in Round: %d", c.voteRound)
-	networkManager := GetServerNetworkManagerInstance()
-	messageReceiver := getServerMessageReceiverInstance()
-
-	// Define the number of quorum, such as three controller candidates
-	// quorum = 3 / 2 + 1 = 2
-	candidateCount := 1 + len(otherControllerCandidates)
-	quorum := candidateCount/2 + 1
-
-	votes := queue.NewArray[pkgrpc.ControllerVote]()
-	votes.Put(c.currentVote)
-
-	for _, remoteServerNode := range otherControllerCandidates {
-		networkManager.sendMessage(remoteServerNode.NodeId, pkgrpc.MessageEntity_VOTE, utils.Encode(&c.currentVote))
-		log.Info.Println("Sends the Controller to vote for the server node: ", utils.ToJson(remoteServerNode))
+	remoteMasterNodes := GetRemoteServerNodeManagerInstance().getRemoteServerNodes()
+	for _, remoteMasterNode := range remoteMasterNodes {
+		nodeIds.Put(remoteMasterNode.GetNodeId())
 	}
 
-	// In the current round of voting, start waiting for someone else's vote
-	for IsRunning() {
-		receivedVote, ok := messageReceiver.voteReceiveQueue.Take()
+	// Perform the assignment of a copy of slots
+	for nodeSlots := range c.slotsAllocation.IterBuffered() {
+		nodeId := nodeSlots.Key
+		slots := nodeSlots.Val
+
+		var replicaNodeId int32
+		hasDecidedReplicaNode := false
+		for !hasDecidedReplicaNode {
+			replicaNodeId = nodeIds.Iter()[rand.Intn(nodeIds.Size())]
+			if nodeId != replicaNodeId {
+				hasDecidedReplicaNode = true
+			}
+		}
+		slotsReplicas, ok := c.slotsReplicaAllocation.Get(replicaNodeId)
+		if !ok {
+			slotsReplicasTemp := queue.NewArray[string]()
+			slotsReplicas = slotsReplicasTemp
+			c.slotsReplicaAllocation.Set(replicaNodeId, slotsReplicas)
+		}
+		slotsReplicas.PutAll(slots.Iter())
+		c.replicaNodeIds.Set(nodeId, replicaNodeId)
+	}
+	log.Info.Println("The slot copy is allocated: ", utils.ToJson(c.slotsReplicaAllocation))
+}
+
+func (c *Controller) persistSlotsAllocation() bool {
+	return persist.Persist(utils.ToJsonByte(c.slotsAllocation), SlotsAllocationFilename)
+}
+
+func (c *Controller) persistSlotsReplicaAllocation() bool {
+	return persist.Persist(utils.ToJsonByte(c.slotsReplicaAllocation), SlotsReplicaAllocationFilename)
+}
+
+func (c *Controller) persistReplicaNodeIds() bool {
+	return persist.Persist(utils.ToJsonByte(c.replicaNodeIds), ReplicaNodeIdsFilename)
+}
+
+// Synchronize slots to allocate data to other controller candidates
+func (c *Controller) syncSlotsAllocation() {
+	slotsAllocationBytes := utils.ToJsonByte(c.slotsAllocation)
+	for _, controllerCandidate := range GetRemoteServerNodeManagerInstance().getOtherControllerCandidates() {
+		GetServerNetworkManagerInstance().sendMessage(controllerCandidate.GetNodeId(),
+			pkgrpc.MessageEntity_SLOTS_ALLOCATION, slotsAllocationBytes)
+	}
+
+	log.Info.Println("Slot assignment data is synchronized to controller candidate nodes!")
+}
+
+func (c *Controller) syncSlotsReplicaAllocation() {
+	replicaNodeIdsBytes := utils.ToJsonByte(c.replicaNodeIds)
+	for _, controllerCandidate := range GetRemoteServerNodeManagerInstance().getOtherControllerCandidates() {
+		GetServerNetworkManagerInstance().sendMessage(controllerCandidate.GetNodeId(),
+			pkgrpc.MessageEntity_REPLICA_NODE_IDS, replicaNodeIdsBytes)
+	}
+	log.Info.Println("The replica node id set is synchronized to the controller candidate node!")
+}
+
+func (c *Controller) syncReplicaNodeIds() {
+	slotsReplicaAllocationBytes := utils.ToJsonByte(c.slotsReplicaAllocation)
+	for _, controllerCandidate := range GetRemoteServerNodeManagerInstance().getOtherControllerCandidates() {
+		GetServerNetworkManagerInstance().sendMessage(controllerCandidate.GetNodeId(),
+			pkgrpc.MessageEntity_SLOTS_REPLICA_ALLOCATION, slotsReplicaAllocationBytes)
+	}
+	log.Info.Println("The slot copy allocates data to the controller candidate node!")
+}
+
+// The slots for which the controller is responsible are initialized in memory
+func (c *Controller) initSlots() {
+	slotsArray, _ := c.slotsAllocation.Get(config.GetConfigurationInstance().NodeId)
+	GetSlotManagerInstance().initSlots(slotsArray)
+}
+
+// The controller's own copy of the slot is initialized in memory
+func (c *Controller) initSlotsReplicas() {
+	slotsReplicas, _ := c.slotsReplicaAllocation.Get(config.GetConfigurationInstance().NodeId)
+	GetSlotManagerInstance().initSlotsReplicas(slotsReplicas, true)
+}
+
+// Initializes the controller's own copy of the target slot
+func (c *Controller) initReplicaNodeId() {
+	replicaNodeId, _ := c.replicaNodeIds.Get(config.GetConfigurationInstance().NodeId)
+	GetSlotManagerInstance().initReplicaNodeId(replicaNodeId)
+}
+
+// Send to each master node the range of slots they are responsible for.
+func (c *Controller) sendNodeSlots() {
+	for _, node := range GetRemoteServerNodeManagerInstance().getRemoteServerNodes() {
+		slots, ok := c.slotsAllocation.Get(node.GetNodeId())
 		if !ok {
 			continue
 		}
-		// Summarize the votes received
-		votes.Put(*receivedVote)
-		log.Info.Println("Received the controller election vote from the server node: ", utils.ToJson(receivedVote))
-
-		// If the total number of votes is found to be greater than or equal to the number of quorum, a decision can be made
-		if votes.Size() >= quorum {
-			judgedControllerNodeId, ok := getControllerFromVotes(*votes, quorum)
-			if ok {
-				if votes.Size() == candidateCount {
-					log.Info.Println("Identify who the Controller is: ", judgedControllerNodeId)
-					return judgedControllerNodeId, true
-				}
-				log.Info.Printf("Identify who the Controller is [%d], but not all the votes have been received", judgedControllerNodeId)
-			} else {
-				log.Info.Println("We don't know who the Controller is yet: ", utils.ToJson(votes.Iter()))
-			}
-		}
-
-		if votes.Size() == candidateCount {
-			// All candidates' ballots have been received, and the controller has not yet been decided.
-			// This round of elections is lost.
-			// Adjust who you're voting for in the next round and find the one with the biggest id among the current candidates.
-			c.voteRound++
-			betterControllerNodeId := getBetterControllerNodeId(*votes)
-			c.currentVote = pkgrpc.ControllerVote{VoterNodeId: config.GetConfigurationInstance().NodeId, ControllerNodeId: betterControllerNodeId, VoteRound: c.voteRound}
-			log.Info.Println("Failed on this ballot, try to create a better ballot: ", utils.ToJson(c.currentVote))
-			break
-		}
+		GetServerNetworkManagerInstance().sendMessage(node.GetNodeId(), pkgrpc.MessageEntity_NODE_SLOTS, utils.ToJsonByte(slots))
 	}
-
-	return 0, false
+	log.Info.Println("Sending the slot range to other nodes is complete.")
 }
 
-// Gets the id of a controller node based on the existing votes
-func getControllerFromVotes(votes queue.Array[pkgrpc.ControllerVote], quorum int) (int32, bool) {
-	voteCountMap := make(map[int32]int)
-
-	for _, vote := range votes.Iter() {
-		count, ok := voteCountMap[vote.GetControllerNodeId()]
+func (c *Controller) sendNodeSlotsReplicas() {
+	for _, node := range GetRemoteServerNodeManagerInstance().getRemoteServerNodes() {
+		slotsReplicas, ok := c.slotsReplicaAllocation.Get(node.GetNodeId())
 		if !ok {
-			count = 0
+			slotsReplicas = queue.NewArray[string]()
 		}
-		count++
-		voteCountMap[vote.GetControllerNodeId()] = count
+		GetServerNetworkManagerInstance().sendMessage(node.GetNodeId(),
+			pkgrpc.MessageEntity_NODE_SLOTS_REPLICAS, utils.ToJsonByte(slotsReplicas))
 	}
-
-	for controllerNodeId, count := range voteCountMap {
-		if count >= quorum {
-			return controllerNodeId, true
-		}
-	}
-	return 0, false
+	log.Info.Println("Sending slot copies to other nodes is complete.")
 }
 
-// Get the largest controller id from the ballot
-func getBetterControllerNodeId(votes queue.Array[pkgrpc.ControllerVote]) int32 {
-	betterControllerNodeId := int32(0)
-	for _, vote := range votes.Iter() {
-		controllerNodeId := vote.GetControllerNodeId()
-		if controllerNodeId > betterControllerNodeId {
-			betterControllerNodeId = controllerNodeId
+func (c *Controller) sendReplicaNodeId() {
+	for _, node := range GetRemoteServerNodeManagerInstance().getRemoteServerNodes() {
+		replicaNodeId, ok := c.replicaNodeIds.Get(node.GetNodeId())
+		if !ok {
+			continue
 		}
+		GetServerNetworkManagerInstance().sendMessage(node.GetNodeId(),
+			pkgrpc.MessageEntity_REPLICA_NODE_ID, utils.ToJsonByte(replicaNodeId))
 	}
-	return betterControllerNodeId
+	log.Info.Println("Sending the replica node id to another node is complete.")
+}
+
+func sendControllerNodeId() {
+	for _, node := range GetRemoteServerNodeManagerInstance().getRemoteServerNodes() {
+		GetServerNetworkManagerInstance().sendMessage(node.GetNodeId(),
+			pkgrpc.MessageEntity_CONTROLLER_NODE_ID, utils.ToJsonByte(config.GetConfigurationInstance().NodeId))
+	}
+	log.Info.Println("Sending controller node ids to all nodes is complete.")
+}
+
+func (c *Controller) syncSlotsAllocationToCandidateNodeId(candidateNodeId int32) {
+	slotsAllocationBytes := utils.ToJsonByte(c.slotsAllocation)
+	GetServerNetworkManagerInstance().sendMessage(candidateNodeId,
+		pkgrpc.MessageEntity_SLOTS_ALLOCATION, slotsAllocationBytes)
 }

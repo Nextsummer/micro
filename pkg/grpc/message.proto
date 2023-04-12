@@ -18,18 +18,35 @@ message RemoteServerNodeResponse {
 
 // remote server node data
 message RemoteServerNode {
-  int32 nodeId = 1;                   // 节点id
-  bool isControllerCandidate = 2;     // 是否为controller候选节点
-  bool isController = 3;              // 自己是否为controller
-  string ip = 4;                      // 节点的ip地址
-  int32 clientPort = 5;               // 面向客户端的端口号
-  int32 InternPort = 6;               // 节点内部通信的TCP端口号
+  int32 nodeId = 1;                   // node id
+  bool isControllerCandidate = 2;     // Whether it is a controller candidate node
+  bool isController = 3;              // Whether you are a controller
+  string ip = 4;                      // ip address of the node
+  int32 clientPort = 5;               // Port number of the client
+  int32 InternPort = 6;               // TCP port number for intra-node communication
 }
 
 message MessageEntity {
   enum MessageType {
-      TERMINATE_MESSAGE = 0;    // 终止运行消息
-      VOTE = 1;                 // 投票消息类型
+      TERMINATE_MESSAGE = 0;          // Terminating run message
+      VOTE = 1;                       // Voting message type
+      SLOTS_ALLOCATION = 2;           // Slot assignment message type
+      NODE_SLOTS = 3;                 // Slots for which the node is responsible
+      SLOTS_REPLICA_ALLOCATION = 4;   // Slot copy assignment message type
+      NODE_SLOTS_REPLICAS = 5;        // A copy of the slot for which the node is responsible
+      REPLICA_NODE_ID = 6;            // Replica node id
+      REPLICA_REGISTER = 7;           // Register to request a forward copy
+      REPLICA_HEARTBEAT = 8;          // Heartbeat request forward replica
+      REPLICA_NODE_IDS = 9;           // Replica node id collection
+      CONTROLLER_NODE_ID = 10;        // Replica node id
+      CHANGE_REPLICA_TO_SLOTS = 11;
+      REFRESH_REPLICA_NODE_ID = 12;   // Refresh the replica node id
+      REFRESH_REPLICA_SLOTS = 13;     // Refresh the slot copy data
+      REQUEST_SLOTS_DATA = 14;        // Request slot data synchronization
+      UPDATE_NODE_SLOTS = 15;         // Slots for which the node is responsible
+      UPDATE_REPLICA_NODE_ID = 16;    // Update the replica node id
+      TRANSFER_SLOTS = 17;            // Transfer slot data to slots
+      UPDATE_SLOTS = 18;              // Transfer slot data to slots
   }
   string requestId = 1;
   MessageType type = 2;
@@ -44,7 +61,7 @@ message MessageResponse {
 }
 
 message ControllerVote {
-  int32 voterNodeId = 1;      // 投票节点id
-  int32 controllerNodeId = 2; // 投票给的那个controller节点id
-  int32 voteRound = 3;        // 投票的轮次
+  int32 voterNodeId = 1;      // Voting node id
+  int32 controllerNodeId = 2; // id of the controller voted for
+  int32 voteRound = 3;        // The rotation of the vote
 }

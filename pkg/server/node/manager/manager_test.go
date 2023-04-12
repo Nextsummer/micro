@@ -136,3 +136,9 @@ func TestSyncMap(t *testing.T) {
 	log.Println(currentMap.Get(2))
 
 }
+
+func TestSetControllerNodeId(t *testing.T) {
+	SetControllerNodeId(3)
+
+	log.Println("node: ", getControllerNodeInstance().nodeId)
+}

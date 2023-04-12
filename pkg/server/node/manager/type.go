@@ -69,21 +69,22 @@ var controllerNode *ControllerNode
 
 // ControllerNode controller where node
 type ControllerNode struct {
-	nodeId int
+	nodeId int32
+	sync.Mutex
 }
 
 func getControllerNodeInstance() *ControllerNode {
 	controllerNodeOnce.Do(func() {
-		controllerNode = new(ControllerNode)
+		controllerNode = &ControllerNode{}
 	})
 	return controllerNode
 }
 
-func SetNodeId(nodeId int) {
+func SetControllerNodeId(nodeId int32) {
 	getControllerNodeInstance().nodeId = nodeId
 }
 
-func IsControllerNode(nodeId int) bool {
+func IsControllerNode(nodeId int32) bool {
 	return getControllerNodeInstance().nodeId == nodeId
 }
 

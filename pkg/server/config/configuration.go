@@ -37,7 +37,7 @@ type Configuration struct {
 	nodeClientHttpPort         int32  //跟客户端通信的HTTP端口号
 	NodeClientTcpPort          int32  //跟客户端通信的TCP端口号
 	IsControllerCandidate      bool   //是否为controller候选节点
-	dataDir                    string //数据存储目录
+	DataDir                    string //数据存储目录
 	ClusterNodeCount           int32  //集群节点总数量
 	ControllerCandidateServers string //controller候选节点的机器列表
 	heartbeatCheckInterval     int32  //心跳检查时间间隔
@@ -61,7 +61,7 @@ func Parse(configPath string) {
 	configuration.nodeClientHttpPort = validateNodeClientHttpPort(configMap[NodeClientHttpPort])
 	configuration.NodeClientTcpPort = validateNodeClientTcpPort(configMap[NodeClientTcpPort])
 	configuration.IsControllerCandidate = validateIsControllerCandidate(configMap[IsControllerCandidate])
-	configuration.dataDir = validateDataDir(configMap[DataDir])
+	configuration.DataDir = validateDataDir(configMap[DataDir])
 	configuration.ClusterNodeCount = validateClusterNodeCount(configMap[ClusterNodeCount])
 	configuration.ControllerCandidateServers = validateControllerCandidateServers(configMap[ControllerCandidateServers])
 	configuration.heartbeatCheckInterval = validateHeartbeatCheckInterval(configMap[HeartbeatCheckInterval])
@@ -220,7 +220,7 @@ func PrintConfigLog() {
 	log.Info.Printf("[%v]=%v", NodeClientTcpPort, configuration.NodeClientTcpPort)
 	log.Info.Printf("[%v]=%v", IsControllerCandidate, configuration.IsControllerCandidate)
 	log.Info.Printf("[%v]=%v", ClusterNodeCount, configuration.ClusterNodeCount)
-	log.Info.Printf("[%v]=%v", DataDir, configuration.dataDir)
+	log.Info.Printf("[%v]=%v", DataDir, configuration.DataDir)
 	log.Info.Printf("[%v]=%v", ControllerCandidateServers, configuration.ControllerCandidateServers)
 	log.Info.Printf("[%v]=%v", HeartbeatCheckInterval, configuration.heartbeatCheckInterval)
 	log.Info.Printf("[%v]=%v", HeartbeatTimeoutPeriod, configuration.heartbeatTimeoutPeriod)

@@ -1,6 +1,9 @@
 package queue
 
-import "sync"
+import (
+	"encoding/json"
+	"sync"
+)
 
 type Array[T any] struct {
 	t []T
@@ -60,4 +63,20 @@ func (a *Array[T]) Iter() []T {
 	a.RWMutex.RLock()
 	defer a.RWMutex.RUnlock()
 	return a.t
+}
+
+func (a *Array[T]) MarshalJSON() ([]byte, error) {
+	return json.Marshal(a.t)
+}
+
+func (a *Array[T]) UnmarshalJSON(b []byte) error {
+	var tmp []T
+	if b == nil {
+		return nil
+	}
+	if err := json.Unmarshal(b, &tmp); err != nil {
+		return err
+	}
+	a.PutAll(tmp)
+	return nil
 }
