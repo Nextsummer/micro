@@ -2,19 +2,19 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"github.com/Nextsummer/micro/pkg/log"
-	"github.com/Nextsummer/micro/pkg/server/config"
-	"github.com/Nextsummer/micro/pkg/server/node/manager"
+	"github.com/Nextsummer/micro/server/config"
+	"github.com/Nextsummer/micro/server/node/manager"
 	"time"
 )
 
 func main() {
 	var configPath = ""
-	flag.StringVar(&configPath, "configPath", "", "config path")
+	flag.StringVar(&configPath, "configPath", "", "server config path")
 	flag.Parse()
 	config.Parse(configPath)
-
-	log.InitLog(config.GetConfigurationInstance().NodeId)
+	log.InitLog(fmt.Sprintf("/server-%d.log", config.GetConfigurationInstance().NodeId))
 	config.PrintConfigLog()
 
 	log.Info.Println("Starting the Micro platform....")

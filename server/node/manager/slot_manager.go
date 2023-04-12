@@ -3,9 +3,9 @@ package manager
 import (
 	"github.com/Nextsummer/micro/pkg/log"
 	"github.com/Nextsummer/micro/pkg/queue"
-	"github.com/Nextsummer/micro/pkg/server/Slot/registry"
-	"github.com/Nextsummer/micro/pkg/server/node/persist"
 	"github.com/Nextsummer/micro/pkg/utils"
+	"github.com/Nextsummer/micro/server/node/persist"
+	"github.com/Nextsummer/micro/server/registry"
 	cmap "github.com/orcaman/concurrent-map/v2"
 	"strconv"
 	"strings"
@@ -32,13 +32,13 @@ func GetSlotManagerInstance() *SlotManager {
 
 // Initializes the set of slots for which this node is responsible
 func (s *SlotManager) initSlots(slots *queue.Array[string]) {
-	if slots.IsEmpty() {
+	if slots == nil || slots.IsEmpty() {
 		for {
 			slotsTemp, ok := getServerMessageReceiverInstance().nodeSlotsQueue.Take()
 			if !ok {
 				continue
 			}
-			slots.PutAll(slotsTemp.Iter())
+			slots = &slotsTemp
 			break
 		}
 	}
@@ -51,16 +51,16 @@ func (s *SlotManager) initSlots(slots *queue.Array[string]) {
 
 // Initializes the collection of slot copies for which this node is responsible
 func (s *SlotManager) initSlotsReplicas(slotScopes *queue.Array[string], isController bool) {
-	if slotScopes.IsEmpty() && !isController {
+	if slotScopes == nil && !isController {
 		for {
 			slotScopesTemp, ok := getServerMessageReceiverInstance().nodeSlotsReplicasQueue.Take()
 			if !ok {
 				continue
 			}
-			slotScopes.PutAll(slotScopesTemp.Iter())
+			slotScopes = &slotScopesTemp
 			break
 		}
-	} else if slotScopes.IsEmpty() && isController {
+	} else if slotScopes == nil && isController {
 		return
 	}
 	for _, slotScope := range slotScopes.Iter() {

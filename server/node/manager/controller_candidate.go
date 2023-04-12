@@ -4,9 +4,9 @@ import (
 	pkgrpc "github.com/Nextsummer/micro/pkg/grpc"
 	"github.com/Nextsummer/micro/pkg/log"
 	"github.com/Nextsummer/micro/pkg/queue"
-	"github.com/Nextsummer/micro/pkg/server/config"
-	"github.com/Nextsummer/micro/pkg/server/node/persist"
 	"github.com/Nextsummer/micro/pkg/utils"
+	"github.com/Nextsummer/micro/server/config"
+	"github.com/Nextsummer/micro/server/node/persist"
 	cmap "github.com/orcaman/concurrent-map/v2"
 	"sync"
 )
@@ -80,7 +80,7 @@ func (c *ControllerCandidate) startNextRoundVote(otherControllerCandidates []pkg
 	votes.Put(c.currentVote)
 
 	for _, remoteServerNode := range otherControllerCandidates {
-		networkManager.sendMessage(remoteServerNode.NodeId, pkgrpc.MessageEntity_VOTE, utils.Encode(&c.currentVote))
+		networkManager.sendMessage(remoteServerNode.NodeId, pkgrpc.MessageEntity_VOTE, utils.GrpcEncode(&c.currentVote))
 		log.Info.Println("Sends the Controller to vote for the server node: ", utils.ToJson(remoteServerNode))
 	}
 

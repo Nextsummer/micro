@@ -2,7 +2,7 @@ package persist
 
 import (
 	"github.com/Nextsummer/micro/pkg/log"
-	"github.com/Nextsummer/micro/pkg/server/config"
+	"github.com/Nextsummer/micro/server/config"
 	"os"
 )
 

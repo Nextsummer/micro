@@ -5,11 +5,10 @@ import (
 	pkgrpc "github.com/Nextsummer/micro/pkg/grpc"
 	"github.com/Nextsummer/micro/pkg/log"
 	"github.com/Nextsummer/micro/pkg/queue"
-	"github.com/Nextsummer/micro/pkg/server/config"
-	"github.com/Nextsummer/micro/pkg/server/node/persist"
 	"github.com/Nextsummer/micro/pkg/utils"
+	"github.com/Nextsummer/micro/server/config"
+	"github.com/Nextsummer/micro/server/node/persist"
 	cmap "github.com/orcaman/concurrent-map/v2"
-	"math/rand"
 	"sync"
 	"time"
 )
@@ -117,7 +116,7 @@ func (c *Controller) executeSlotsAllocation() {
 	slotsList := queue.NewArray[string]()
 	slotsList.Put(fmt.Sprintf("%d,%d", nextStartSlot, nextEndSlot+remainSlotsCount))
 	c.slotsAllocation.Set(nodeId, slotsList)
-	log.Info.Println("The slots are allocated: ", utils.ToJson(c.slotsAllocation))
+	log.Info.Println("Receive slots allocated data : ", utils.ToJson(c.slotsAllocation))
 }
 
 // Perform the assignment of a copy of slots
@@ -139,7 +138,7 @@ func (c *Controller) executeSlotsReplicaAllocation() {
 		var replicaNodeId int32
 		hasDecidedReplicaNode := false
 		for !hasDecidedReplicaNode {
-			replicaNodeId = nodeIds.Iter()[rand.Intn(nodeIds.Size())]
+			replicaNodeId = nodeIds.RandomTake()
 			if nodeId != replicaNodeId {
 				hasDecidedReplicaNode = true
 			}
@@ -153,7 +152,7 @@ func (c *Controller) executeSlotsReplicaAllocation() {
 		slotsReplicas.PutAll(slots.Iter())
 		c.replicaNodeIds.Set(nodeId, replicaNodeId)
 	}
-	log.Info.Println("The slot copy is allocated: ", utils.ToJson(c.slotsReplicaAllocation))
+	log.Info.Println("Receive slots replica allocated data: ", utils.ToJson(c.slotsReplicaAllocation))
 }
 
 func (c *Controller) persistSlotsAllocation() bool {

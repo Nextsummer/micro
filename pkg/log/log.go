@@ -1,7 +1,6 @@
 package log
 
 import (
-	"fmt"
 	"io"
 	"log"
 	"os"
@@ -13,9 +12,9 @@ var (
 	Error log.Logger
 )
 
-func InitLog(nodeId int32) {
+func InitLog(fileName string) {
 	flags := log.Ldate | log.Lmicroseconds | log.Lshortfile
-	output := io.MultiWriter(os.Stdout, openFile("./logs", fmt.Sprintf("/server-%d.log", nodeId)))
+	output := io.MultiWriter(os.Stdout, openFile("./logs", fileName))
 	Info = *log.New(output, "[INFO] ", flags)
 	Warn = *log.New(output, "[Warn] ", flags)
 	Error = *log.New(output, "[Error]", flags)

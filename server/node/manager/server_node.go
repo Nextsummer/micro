@@ -2,7 +2,7 @@ package manager
 
 import (
 	"github.com/Nextsummer/micro/pkg/log"
-	"github.com/Nextsummer/micro/pkg/server/config"
+	"github.com/Nextsummer/micro/server/config"
 )
 
 func Start() {
@@ -21,7 +21,8 @@ func Start() {
 	}
 
 	// Start the message receiving component of the server node
-	go getServerMessageReceiverInstance().run()
+	messageReceiver := getServerMessageReceiverInstance()
+	go messageReceiver.run()
 
 	// Determines whether you are a controller candidate
 	isController := false
@@ -56,7 +57,19 @@ func Start() {
 	}
 
 	if !isController {
-
+		slotManager := GetSlotManagerInstance()
+		slotManager.initSlots(nil)
+		slotManager.initSlotsReplicas(nil, false)
+		slotManager.initReplicaNodeId(0)
+		for {
+			controllerNodeId, ok := serverMessageReceiver.controllerNodeIdQueue.Take()
+			if !ok {
+				continue
+			}
+			SetControllerNodeId(controllerNodeId)
+			break
+		}
 	}
+	SetServerNodeRole(serverNodeRole)
 
 }

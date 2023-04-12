@@ -5,7 +5,7 @@ import (
 )
 
 func TestInitLog(t *testing.T) {
-	InitLog(1)
+	InitLog("temp")
 
 	Info.Println("test 11")
 	Info.Println("test warn 111")

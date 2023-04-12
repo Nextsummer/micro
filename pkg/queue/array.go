@@ -2,6 +2,7 @@ package queue
 
 import (
 	"encoding/json"
+	"math/rand"
 	"sync"
 )
 
@@ -26,17 +27,29 @@ func (a *Array[T]) PutAll(t []T) {
 	a.t = append(a.t, t...)
 }
 
-func (a *Array[T]) Take() (T, bool) {
+func (a *Array[T]) Take() (t T, result bool) {
 	a.Lock()
 	defer a.Unlock()
-	var temp T
 
 	if len(a.t) > 0 {
 		t := a.t[0]
 		a.t = append(a.t[:0], a.t[1:]...)
 		return t, true
 	}
-	return temp, false
+	return t, false
+}
+
+func (a *Array[T]) RandomTake() (t T) {
+	a.Lock()
+	defer a.Unlock()
+
+	if len(a.t) > 0 {
+		randNum := rand.Intn(len(a.t))
+		t := a.t[randNum]
+		a.t = append(a.t[:randNum], a.t[randNum+1:]...)
+		return t
+	}
+	return t
 }
 
 func (a *Array[T]) Size() int {
@@ -63,6 +76,12 @@ func (a *Array[T]) Iter() []T {
 	a.RWMutex.RLock()
 	defer a.RWMutex.RUnlock()
 	return a.t
+}
+
+func (a *Array[T]) Delete(i int) {
+	a.RWMutex.Lock()
+	defer a.RWMutex.Unlock()
+	a.t = append(a.t[:i], a.t[i+1:]...)
 }
 
 func (a *Array[T]) MarshalJSON() ([]byte, error) {

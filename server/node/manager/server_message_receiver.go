@@ -26,6 +26,7 @@ type ServerMessageReceiver struct {
 	nodeSlotsQueue         queue.Array[queue.Array[string]]
 	nodeSlotsReplicasQueue queue.Array[queue.Array[string]]
 	replicaNodeIdQueue     queue.Array[int32]
+	controllerNodeIdQueue  queue.Array[int32]
 }
 
 var serverMessageReceiverOnce sync.Once
@@ -41,6 +42,7 @@ func getServerMessageReceiverInstance() *ServerMessageReceiver {
 			nodeSlotsQueue:                     *queue.NewArray[queue.Array[string]](),
 			nodeSlotsReplicasQueue:             *queue.NewArray[queue.Array[string]](),
 			replicaNodeIdQueue:                 *queue.NewArray[int32](),
+			controllerNodeIdQueue:              *queue.NewArray[int32](),
 		}
 	})
 	return serverMessageReceiver
@@ -58,7 +60,7 @@ func (s *ServerMessageReceiver) run() {
 		data := message.GetData()
 		if pkgrpc.MessageEntity_VOTE == messageType {
 			controllerVote := &pkgrpc.ControllerVote{}
-			utils.Decode(data, controllerVote)
+			utils.GrpcDecode(data, controllerVote)
 			s.voteReceiveQueue.Put(controllerVote)
 			log.Info.Println("A controller vote was received: ", utils.ToJson(controllerVote))
 		} else if pkgrpc.MessageEntity_SLOTS_ALLOCATION == messageType {
@@ -96,7 +98,10 @@ func (s *ServerMessageReceiver) run() {
 			s.replicaNodeIdsQueue.Put(replicaNodeIds)
 			log.Info.Println("Received replica node id collection: ", utils.ToJson(replicaNodeIds))
 		} else if pkgrpc.MessageEntity_CONTROLLER_NODE_ID == messageType {
-
+			var controllerNodeId int32
+			utils.BytesToJson(data, &controllerNodeId)
+			s.controllerNodeIdQueue.Put(controllerNodeId)
+			log.Info.Println("Received controller node id: ", controllerNodeId)
 		}
 	}
 }
