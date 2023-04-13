@@ -21,8 +21,7 @@ func Start() {
 	}
 
 	// Start the message receiving component of the server node
-	messageReceiver := getServerMessageReceiverInstance()
-	go messageReceiver.run()
+	go GetServerMessageReceiverInstance().run()
 
 	// Determines whether you are a controller candidate
 	isController := false
@@ -72,4 +71,6 @@ func Start() {
 	}
 	SetServerNodeRole(serverNodeRole)
 
+	go ReplicationManager()
+	StartClientIO()
 }

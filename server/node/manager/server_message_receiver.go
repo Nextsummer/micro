@@ -27,22 +27,26 @@ type ServerMessageReceiver struct {
 	nodeSlotsReplicasQueue queue.Array[queue.Array[string]]
 	replicaNodeIdQueue     queue.Array[int32]
 	controllerNodeIdQueue  queue.Array[int32]
+	RegisterRequestQueue   queue.Array[pkgrpc.RegisterRequest]
+	HeartbeatRequestQueue  queue.Array[pkgrpc.HeartbeatRequest]
 }
 
 var serverMessageReceiverOnce sync.Once
 var serverMessageReceiver *ServerMessageReceiver
 
-func getServerMessageReceiverInstance() *ServerMessageReceiver {
+func GetServerMessageReceiverInstance() *ServerMessageReceiver {
 	serverMessageReceiverOnce.Do(func() {
 		serverMessageReceiver = &ServerMessageReceiver{
-			voteReceiveQueue:                   *queue.NewArray[*pkgrpc.ControllerVote](),
-			slotsAllocationReceiveQueue:        *queue.NewArray[cmap.ConcurrentMap[int32, *queue.Array[string]]](),
-			slotsReplicaAllocationReceiveQueue: *queue.NewArray[cmap.ConcurrentMap[int32, *queue.Array[string]]](),
-			replicaNodeIdsQueue:                *queue.NewArray[cmap.ConcurrentMap[int32, int32]](),
-			nodeSlotsQueue:                     *queue.NewArray[queue.Array[string]](),
-			nodeSlotsReplicasQueue:             *queue.NewArray[queue.Array[string]](),
-			replicaNodeIdQueue:                 *queue.NewArray[int32](),
-			controllerNodeIdQueue:              *queue.NewArray[int32](),
+			*queue.NewArray[*pkgrpc.ControllerVote](),
+			*queue.NewArray[cmap.ConcurrentMap[int32, *queue.Array[string]]](),
+			*queue.NewArray[cmap.ConcurrentMap[int32, *queue.Array[string]]](),
+			*queue.NewArray[cmap.ConcurrentMap[int32, int32]](),
+			*queue.NewArray[queue.Array[string]](),
+			*queue.NewArray[queue.Array[string]](),
+			*queue.NewArray[int32](),
+			*queue.NewArray[int32](),
+			*queue.NewArray[pkgrpc.RegisterRequest](),
+			*queue.NewArray[pkgrpc.HeartbeatRequest](),
 		}
 	})
 	return serverMessageReceiver
@@ -60,7 +64,7 @@ func (s *ServerMessageReceiver) run() {
 		data := message.GetData()
 		if pkgrpc.MessageEntity_VOTE == messageType {
 			controllerVote := &pkgrpc.ControllerVote{}
-			utils.Decode(data, controllerVote)
+			_ = utils.Decode(data, controllerVote)
 			s.voteReceiveQueue.Put(controllerVote)
 			log.Info.Println("A controller vote was received: ", utils.ToJson(controllerVote))
 		} else if pkgrpc.MessageEntity_SLOTS_ALLOCATION == messageType {
@@ -89,9 +93,15 @@ func (s *ServerMessageReceiver) run() {
 			s.replicaNodeIdQueue.Put(replicaNodeId)
 			log.Info.Println("Received replica node id: ", replicaNodeId)
 		} else if pkgrpc.MessageEntity_REPLICA_REGISTER == messageType {
-
+			registerRequest := pkgrpc.RegisterRequest{}
+			utils.Decode(data, &registerRequest)
+			s.RegisterRequestQueue.Put(registerRequest)
+			log.Info.Println("Received service registration request forwarded to replica: ", utils.ToJson(registerRequest))
 		} else if pkgrpc.MessageEntity_REPLICA_HEARTBEAT == messageType {
-
+			heartbeatRequest := pkgrpc.HeartbeatRequest{}
+			utils.Decode(data, &heartbeatRequest)
+			s.HeartbeatRequestQueue.Put(heartbeatRequest)
+			log.Info.Println("Received a service heartbeat request forwarded to the replica: ", utils.ToJson(heartbeatRequest))
 		} else if pkgrpc.MessageEntity_REPLICA_NODE_IDS == messageType {
 			replicaNodeIds := cmap.NewWithCustomShardingFunction[int32, int32](Int32HashCode)
 			utils.BytesToJson(data, &replicaNodeIds)

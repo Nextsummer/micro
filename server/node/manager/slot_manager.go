@@ -34,7 +34,7 @@ func GetSlotManagerInstance() *SlotManager {
 func (s *SlotManager) initSlots(slots *queue.Array[string]) {
 	if slots == nil || slots.IsEmpty() {
 		for {
-			slotsTemp, ok := getServerMessageReceiverInstance().nodeSlotsQueue.Take()
+			slotsTemp, ok := GetServerMessageReceiverInstance().nodeSlotsQueue.Take()
 			if !ok {
 				continue
 			}
@@ -53,7 +53,7 @@ func (s *SlotManager) initSlots(slots *queue.Array[string]) {
 func (s *SlotManager) initSlotsReplicas(slotScopes *queue.Array[string], isController bool) {
 	if slotScopes == nil && !isController {
 		for {
-			slotScopesTemp, ok := getServerMessageReceiverInstance().nodeSlotsReplicasQueue.Take()
+			slotScopesTemp, ok := GetServerMessageReceiverInstance().nodeSlotsReplicasQueue.Take()
 			if !ok {
 				continue
 			}
@@ -76,7 +76,7 @@ func (s *SlotManager) initSlotsReplicas(slotScopes *queue.Array[string], isContr
 func (s *SlotManager) initReplicaNodeId(replicaNodeId int32) {
 	if replicaNodeId == 0 {
 		for {
-			replicaNodeIdTemp, ok := getServerMessageReceiverInstance().replicaNodeIdQueue.Take()
+			replicaNodeIdTemp, ok := GetServerMessageReceiverInstance().replicaNodeIdQueue.Take()
 			if !ok {
 				continue
 			}
@@ -86,6 +86,35 @@ func (s *SlotManager) initReplicaNodeId(replicaNodeId int32) {
 	}
 	s.slots.replicaNodeId = replicaNodeId
 	log.Info.Println("The replica node id is initialized.")
+}
+
+// GetSlotReplica get slot replica
+func (s *SlotManager) GetSlotReplica(serviceName string) *Slot {
+	slotNo := routeSlot(serviceName)
+
+	slotsReplica := &SlotsReplica{}
+	for slotsReplicas := range s.slotsReplicas.IterBuffered() {
+		slotScope := slotsReplicas.Key
+		startSlot, _ := strconv.ParseInt(strings.Split(slotScope, ",")[0], 10, 32)
+		endSlot, _ := strconv.ParseInt(strings.Split(slotScope, ",")[1], 10, 32)
+
+		if slotNo >= int32(startSlot) && slotNo <= int32(endSlot) {
+			slotsReplica, _ = s.slotsReplicas.Get(slotScope)
+			break
+		}
+	}
+	slot, _ := slotsReplica.slots.Get(slotNo)
+	return slot
+}
+
+// Route the service to the slot
+func routeSlot(serviceName string) int32 {
+	hashCode := utils.StringHashCode(serviceName)
+	slot := hashCode % SlotsCount
+	if slot == 0 {
+		slot++
+	}
+	return slot
 }
 
 func (s *SlotManager) refreshReplicaNodeId(newReplicaNodeId int32) {
@@ -143,7 +172,7 @@ func (s *Slots) PutSlot(slotNo int32, slot *Slot) {
 
 type Slot struct {
 	slotNo          int32
-	serviceRegistry registry.ServiceRegistry
+	ServiceRegistry registry.ServiceRegistry
 }
 
 func NewSlot(slotNo int32, serviceRegistry registry.ServiceRegistry) *Slot {
@@ -151,13 +180,13 @@ func NewSlot(slotNo int32, serviceRegistry registry.ServiceRegistry) *Slot {
 }
 
 func (s *Slot) isEmpty() bool {
-	return s.serviceRegistry.IsEmpty()
+	return s.ServiceRegistry.IsEmpty()
 }
 
 func (s *Slot) getSlotData() []byte {
-	return s.serviceRegistry.GetData()
+	return s.ServiceRegistry.GetData()
 }
 
 func (s *Slot) updateSlotData(serviceInstances []registry.ServiceInstance) {
-	s.serviceRegistry.UpdateData(serviceInstances)
+	s.ServiceRegistry.UpdateData(serviceInstances)
 }

@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"github.com/Nextsummer/micro/pkg/log"
 	"google.golang.org/protobuf/proto"
+	"io"
 )
 
 func Encode(m proto.Message) []byte {
@@ -18,11 +19,13 @@ func Encode(m proto.Message) []byte {
 	return bytes
 }
 
-func Decode(data []byte, messageEntity proto.Message) {
+func Decode(data []byte, messageEntity proto.Message) error {
 	err := proto.Unmarshal(data, messageEntity)
 	if err != nil {
-		log.Error.Println("Service message deserialization failed when received, error msg: ", err)
+		log.Warn.Println("Service message deserialization failed when received, error msg: ", err)
+		return err
 	}
+	return nil
 }
 
 func ToJson(x any) string {
@@ -86,4 +89,14 @@ func TcpDecode(reader *bufio.Reader) ([]byte, error) {
 	}
 
 	return pack[4:], nil
+}
+
+func ReadByte(rd io.Reader) ([]byte, error) {
+	reader := bufio.NewReader(rd)
+	pack := make([]byte, reader.Size())
+	_, err := reader.Read(pack)
+	if err != nil {
+		return nil, err
+	}
+	return pack, nil
 }

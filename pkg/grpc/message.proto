@@ -28,25 +28,33 @@ message RemoteServerNode {
 
 message MessageEntity {
   enum MessageType {
-      TERMINATE_MESSAGE = 0;          // Terminating run message
-      VOTE = 1;                       // Voting message type
-      SLOTS_ALLOCATION = 2;           // Slot assignment message type
-      NODE_SLOTS = 3;                 // Slots for which the node is responsible
-      SLOTS_REPLICA_ALLOCATION = 4;   // Slot copy assignment message type
-      NODE_SLOTS_REPLICAS = 5;        // A copy of the slot for which the node is responsible
-      REPLICA_NODE_ID = 6;            // Replica node id
-      REPLICA_REGISTER = 7;           // Register to request a forward copy
-      REPLICA_HEARTBEAT = 8;          // Heartbeat request forward replica
-      REPLICA_NODE_IDS = 9;           // Replica node id collection
-      CONTROLLER_NODE_ID = 10;        // Replica node id
-      CHANGE_REPLICA_TO_SLOTS = 11;
-      REFRESH_REPLICA_NODE_ID = 12;   // Refresh the replica node id
-      REFRESH_REPLICA_SLOTS = 13;     // Refresh the slot copy data
-      REQUEST_SLOTS_DATA = 14;        // Request slot data synchronization
-      UPDATE_NODE_SLOTS = 15;         // Slots for which the node is responsible
-      UPDATE_REPLICA_NODE_ID = 16;    // Update the replica node id
-      TRANSFER_SLOTS = 17;            // Transfer slot data to slots
-      UPDATE_SLOTS = 18;              // Transfer slot data to slots
+    TERMINATE_MESSAGE = 0;          // Terminating run message
+    VOTE = 1;                       // Voting message type
+    SLOTS_ALLOCATION = 2;           // Slot assignment message type
+    NODE_SLOTS = 3;                 // Slots for which the node is responsible
+    SLOTS_REPLICA_ALLOCATION = 4;   // Slot copy assignment message type
+    NODE_SLOTS_REPLICAS = 5;        // A copy of the slot for which the node is responsible
+    REPLICA_NODE_ID = 6;            // Replica node id
+    REPLICA_REGISTER = 7;           // Register to request a forward copy
+    REPLICA_HEARTBEAT = 8;          // Heartbeat request forward replica
+    REPLICA_NODE_IDS = 9;           // Replica node id collection
+    CONTROLLER_NODE_ID = 10;        // Replica node id
+    CHANGE_REPLICA_TO_SLOTS = 11;
+    REFRESH_REPLICA_NODE_ID = 12;   // Refresh the replica node id
+    REFRESH_REPLICA_SLOTS = 13;     // Refresh the slot copy data
+    REQUEST_SLOTS_DATA = 14;        // Request slot data synchronization
+    UPDATE_NODE_SLOTS = 15;         // Slots for which the node is responsible
+    UPDATE_REPLICA_NODE_ID = 16;    // Update the replica node id
+    TRANSFER_SLOTS = 17;            // Transfer slot data to slots
+    UPDATE_SLOTS = 18;              // Transfer slot data to slots
+
+    CLIENT_FETCH_SLOTS_ALLOCATION = 101; // Pull the slots allocation data request
+    CLIENT_FETCH_SERVER_ADDRESSES = 102; // Pull the server node address list request
+    CLIENT_REGISTER = 103;               // Client registration request
+    CLIENT_HEARTBEAT = 104;              // Client heartbeat request
+    CLIENT_FETCH_SERVER_NODE_ID = 105;   // Pull server node id
+    CLIENT_SUBSCRIBE = 106;              // Subscribe service
+    CLIENT_SERVICE_CHANGED = 107;        // Service instance changed
   }
   string requestId = 1;
   MessageType type = 2;
@@ -54,7 +62,14 @@ message MessageEntity {
 }
 
 message MessageResponse {
-  int32 code = 1;
+  enum ResponseCode {
+    SUCCESS = 000000;
+    SYSTEM_FAIL = 100001;
+    REGISTER_SUCCESS = 100100;
+    REGISTER_FAILURE= 100101;
+
+  }
+  ResponseCode code = 1;
   bool success = 2;
   string message = 3;
   MessageEntity data = 4;
@@ -67,6 +82,12 @@ message ControllerVote {
 }
 
 message RegisterRequest {
+  string serviceName = 1;
+  string serviceInstanceIp = 2;
+  int32 serviceInstancePort = 3;
+}
+
+message HeartbeatRequest {
   string serviceName = 1;
   string serviceInstanceIp = 2;
   int32 serviceInstancePort = 3;

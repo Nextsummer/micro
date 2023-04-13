@@ -2,10 +2,12 @@ package registry
 
 import (
 	"fmt"
+	"github.com/Nextsummer/micro/pkg/log"
 	"github.com/Nextsummer/micro/pkg/queue"
 	"github.com/Nextsummer/micro/pkg/utils"
 	cmap "github.com/orcaman/concurrent-map/v2"
 	"sync"
+	"time"
 )
 
 type ServiceInstance struct {
@@ -13,6 +15,14 @@ type ServiceInstance struct {
 	serviceInstanceIp   string
 	serviceInstancePort int32
 	latestHeartbeatTime int64
+}
+
+func NewServiceInstance(serviceName, serviceInstanceIp string, serviceInstancePort int32) *ServiceInstance {
+	return &ServiceInstance{
+		serviceName:         serviceName,
+		serviceInstanceIp:   serviceInstanceIp,
+		serviceInstancePort: serviceInstancePort,
+	}
 }
 
 func (s *ServiceInstance) String() string {
@@ -55,6 +65,26 @@ func (s *ServiceRegistry) Register(serviceInstance ServiceInstance) {
 
 	s.serviceInstanceData.Set(serviceInstance.getServiceInstanceId(), serviceInstance)
 
+}
+
+func (s *ServiceRegistry) Heartbeat(serviceInstance ServiceInstance) {
+	serviceInstanceId := serviceInstance.getServiceInstanceId()
+	serviceInstance, ok := s.serviceInstanceData.Get(serviceInstanceId)
+	if !ok {
+		s.RWMutex.Lock()
+		serviceInstance, ok = s.serviceInstanceData.Get(serviceInstanceId)
+		if !ok {
+			s.serviceInstanceData.Set(serviceInstanceId, serviceInstance)
+			serviceInstances, ok := s.serviceRegistryData.Get(serviceInstanceId)
+			if !ok {
+				s.serviceRegistryData.Set(serviceInstanceId, queue.NewArray[ServiceInstance]())
+			}
+			serviceInstances.Put(serviceInstance)
+		}
+		s.RWMutex.Unlock()
+	}
+	serviceInstance.latestHeartbeatTime = time.Now().Unix()
+	log.Info.Printf("Received to %d heartbeat.", serviceInstance.getServiceInstanceId())
 }
 
 func (s *ServiceRegistry) UpdateData(serviceInstances []ServiceInstance) {

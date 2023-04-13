@@ -69,7 +69,7 @@ func (c *ControllerCandidate) startNextRoundVote(otherControllerCandidates []pkg
 
 	log.Info.Printf("Voting begins in Round: %d", c.voteRound)
 	networkManager := GetServerNetworkManagerInstance()
-	messageReceiver := getServerMessageReceiverInstance()
+	messageReceiver := GetServerMessageReceiverInstance()
 
 	// Define the number of quorum, such as three controller candidates
 	// quorum = 3 / 2 + 1 = 2
@@ -164,7 +164,7 @@ func requestSlotsData(controllerNodeId int32) {
 // Block waiting for slot allocation data
 func (c *ControllerCandidate) waitForSlotsAllocation() {
 	for {
-		slotsAllocation, ok := getServerMessageReceiverInstance().slotsAllocationReceiveQueue.Take()
+		slotsAllocation, ok := GetServerMessageReceiverInstance().slotsAllocationReceiveQueue.Take()
 		if !ok {
 			continue
 		}
@@ -176,7 +176,7 @@ func (c *ControllerCandidate) waitForSlotsAllocation() {
 
 func (c *ControllerCandidate) waitForSlotsReplicaAllocation() {
 	for {
-		slotsReplicaAllocation, ok := getServerMessageReceiverInstance().slotsReplicaAllocationReceiveQueue.Take()
+		slotsReplicaAllocation, ok := GetServerMessageReceiverInstance().slotsReplicaAllocationReceiveQueue.Take()
 		if !ok {
 			continue
 		}
@@ -188,7 +188,7 @@ func (c *ControllerCandidate) waitForSlotsReplicaAllocation() {
 
 func (c *ControllerCandidate) waitReplicaNodeIds() {
 	for {
-		replicaNodeIds, ok := getServerMessageReceiverInstance().replicaNodeIdsQueue.Take()
+		replicaNodeIds, ok := GetServerMessageReceiverInstance().replicaNodeIdsQueue.Take()
 		if !ok {
 			continue
 		}
