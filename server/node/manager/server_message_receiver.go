@@ -60,7 +60,7 @@ func (s *ServerMessageReceiver) run() {
 		data := message.GetData()
 		if pkgrpc.MessageEntity_VOTE == messageType {
 			controllerVote := &pkgrpc.ControllerVote{}
-			utils.GrpcDecode(data, controllerVote)
+			utils.Decode(data, controllerVote)
 			s.voteReceiveQueue.Put(controllerVote)
 			log.Info.Println("A controller vote was received: ", utils.ToJson(controllerVote))
 		} else if pkgrpc.MessageEntity_SLOTS_ALLOCATION == messageType {

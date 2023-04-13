@@ -21,16 +21,22 @@ func TestBytesToJson(t *testing.T) {
 }
 
 func TestEncodeAndDecode(t *testing.T) {
-	request := pkgrpc.RegisterRequest{
-		Request:             &pkgrpc.Request{Id: "1", Data: ToJsonByte("hello go")},
+	registerRequestEncode := Encode(&pkgrpc.RegisterRequest{
 		ServiceName:         "hello",
 		ServiceInstancePort: 8080,
 		ServiceInstanceIp:   "127.0.0.1",
-	}
-	encode := GrpcEncode(&request)
-	log.Println(encode)
+	})
+	log.Println(registerRequestEncode)
+
+	request := &pkgrpc.MessageEntity{RequestId: "1", Data: registerRequestEncode}
+	requestEncode := Encode(request)
+
+	messageEntity := &pkgrpc.MessageEntity{}
+	Decode(requestEncode, messageEntity)
+
+	log.Println("decode: ", messageEntity)
 
 	var registerRequest pkgrpc.RegisterRequest
-	GrpcDecode(encode, &registerRequest)
+	Decode(messageEntity.GetData(), &registerRequest)
 	log.Println(ToJson(registerRequest))
 }

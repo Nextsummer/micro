@@ -9,7 +9,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func GrpcEncode(m proto.Message) []byte {
+func Encode(m proto.Message) []byte {
 	bytes, err := proto.Marshal(m)
 	if err != nil {
 		log.Error.Println("Failed to serialize message, error msg: ", err)
@@ -18,7 +18,7 @@ func GrpcEncode(m proto.Message) []byte {
 	return bytes
 }
 
-func GrpcDecode(data []byte, messageEntity proto.Message) {
+func Decode(data []byte, messageEntity proto.Message) {
 	err := proto.Unmarshal(data, messageEntity)
 	if err != nil {
 		log.Error.Println("Service message deserialization failed when received, error msg: ", err)
@@ -51,20 +51,11 @@ func BytesToJson(bytes []byte, x any) {
 	}
 }
 
-func HttpEncode(flag, messageType int32, message []byte) ([]byte, error) {
+func TcpEncode(message []byte) ([]byte, error) {
 	var length = int32(len(message))
 	var pkg = new(bytes.Buffer)
 
-	err := binary.Write(pkg, binary.LittleEndian, flag)
-	if err != nil {
-		return nil, err
-	}
-	err = binary.Write(pkg, binary.LittleEndian, messageType)
-	if err != nil {
-		return nil, err
-	}
-
-	err = binary.Write(pkg, binary.LittleEndian, length)
+	err := binary.Write(pkg, binary.LittleEndian, length)
 	if err != nil {
 		return nil, err
 	}
@@ -75,34 +66,24 @@ func HttpEncode(flag, messageType int32, message []byte) ([]byte, error) {
 	return pkg.Bytes(), nil
 }
 
-func HttpDecode(reader *bufio.Reader) (int32, int32, []byte, error) {
-	var flag, messageType, length int32
+func TcpDecode(reader *bufio.Reader) ([]byte, error) {
+	var length int32
 
-	flagByte, _ := reader.Peek(4)
-	err := binary.Read(bytes.NewBuffer(flagByte), binary.LittleEndian, &flag)
+	lengthByte, _ := reader.Peek(4)
+	err := binary.Read(bytes.NewBuffer(lengthByte), binary.LittleEndian, &length)
 	if err != nil {
-		return 0, 0, nil, err
+		return nil, err
 	}
 
-	messageTypeByte, _ := reader.Peek(4 + 4)
-	err = binary.Read(bytes.NewBuffer(messageTypeByte), binary.LittleEndian, &messageType)
-	if err != nil {
-		return 0, 0, nil, err
-	}
-
-	lengthByte, _ := reader.Peek(4 + 4 + 4)
-	err = binary.Read(bytes.NewBuffer(lengthByte), binary.LittleEndian, &length)
-	if err != nil {
-		return 0, 0, nil, err
-	}
-	if int32(reader.Buffered()) < length+4+4+4 {
-		return 0, 0, nil, err
+	if int32(reader.Buffered()) < length+4 {
+		return nil, err
 	}
 
 	pack := make([]byte, int(4+length))
 	_, err = reader.Read(pack)
 	if err != nil {
-		return 0, 0, nil, err
+		return nil, err
 	}
-	return flag, messageType, pack[4+4+4:], nil
+
+	return pack[4:], nil
 }

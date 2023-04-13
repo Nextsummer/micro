@@ -80,7 +80,7 @@ func (c *ControllerCandidate) startNextRoundVote(otherControllerCandidates []pkg
 	votes.Put(c.currentVote)
 
 	for _, remoteServerNode := range otherControllerCandidates {
-		networkManager.sendMessage(remoteServerNode.NodeId, pkgrpc.MessageEntity_VOTE, utils.GrpcEncode(&c.currentVote))
+		networkManager.sendMessage(remoteServerNode.NodeId, pkgrpc.MessageEntity_VOTE, utils.Encode(&c.currentVote))
 		log.Info.Println("Sends the Controller to vote for the server node: ", utils.ToJson(remoteServerNode))
 	}
 

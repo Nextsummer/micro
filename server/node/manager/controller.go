@@ -136,11 +136,13 @@ func (c *Controller) executeSlotsReplicaAllocation() {
 		slots := nodeSlots.Val
 
 		var replicaNodeId int32
-		hasDecidedReplicaNode := false
-		for !hasDecidedReplicaNode {
-			replicaNodeId = nodeIds.RandomTake()
-			if nodeId != replicaNodeId {
-				hasDecidedReplicaNode = true
+		for {
+			if !nodeIds.IsEmpty() {
+				replicaNodeId = nodeIds.RandomTake()
+				if nodeId != replicaNodeId {
+					break
+				}
+				nodeIds.Put(replicaNodeId)
 			}
 		}
 		slotsReplicas, ok := c.slotsReplicaAllocation.Get(replicaNodeId)
