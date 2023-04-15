@@ -1,9 +1,5 @@
 package manager
 
-import (
-	"github.com/Nextsummer/micro/server/registry"
-)
-
 // ReplicationManager Replica copy component
 func ReplicationManager() {
 	serverMessageReceiver := GetServerMessageReceiverInstance()
@@ -16,7 +12,7 @@ func ReplicationManager() {
 				break
 			}
 			serviceName := registerRequest.GetServiceName()
-			serviceInstance := registry.NewServiceInstance(serviceName, registerRequest.GetServiceInstanceIp(), registerRequest.GetServiceInstancePort())
+			serviceInstance := NewServiceInstance(serviceName, registerRequest.GetServiceInstanceIp(), registerRequest.GetServiceInstancePort())
 			slotReplica := slotManager.GetSlotReplica(serviceName)
 			slotReplica.ServiceRegistry.Register(*serviceInstance)
 		}
@@ -27,7 +23,7 @@ func ReplicationManager() {
 				break
 			}
 			serviceName := heartbeatRequest.GetServiceName()
-			serviceInstance := registry.NewServiceInstance(serviceName, heartbeatRequest.GetServiceInstanceIp(), heartbeatRequest.GetServiceInstancePort())
+			serviceInstance := NewServiceInstance(serviceName, heartbeatRequest.GetServiceInstanceIp(), heartbeatRequest.GetServiceInstancePort())
 			slotReplica := slotManager.GetSlotReplica(serviceName)
 			slotReplica.ServiceRegistry.Heartbeat(*serviceInstance)
 		}

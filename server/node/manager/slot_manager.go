@@ -5,7 +5,6 @@ import (
 	"github.com/Nextsummer/micro/pkg/queue"
 	"github.com/Nextsummer/micro/pkg/utils"
 	"github.com/Nextsummer/micro/server/node/persist"
-	"github.com/Nextsummer/micro/server/registry"
 	cmap "github.com/orcaman/concurrent-map/v2"
 	"strconv"
 	"strings"
@@ -90,7 +89,7 @@ func (s *SlotManager) initReplicaNodeId(replicaNodeId int32) {
 
 // GetSlotReplica get slot replica
 func (s *SlotManager) GetSlotReplica(serviceName string) *Slot {
-	slotNo := routeSlot(serviceName)
+	slotNo := utils.RouteSlot(serviceName)
 
 	slotsReplica := &SlotsReplica{}
 	for slotsReplicas := range s.slotsReplicas.IterBuffered() {
@@ -104,16 +103,6 @@ func (s *SlotManager) GetSlotReplica(serviceName string) *Slot {
 		}
 	}
 	slot, _ := slotsReplica.slots.Get(slotNo)
-	return slot
-}
-
-// Route the service to the slot
-func routeSlot(serviceName string) int32 {
-	hashCode := utils.StringHashCode(serviceName)
-	slot := hashCode % SlotsCount
-	if slot == 0 {
-		slot++
-	}
 	return slot
 }
 
@@ -137,7 +126,7 @@ func (s *SlotsReplica) init(slotScope string) {
 	startSlotNo, _ := strconv.ParseInt(slotScopeSplit[0], 10, 32)
 	endSlotNo, _ := strconv.ParseInt(slotScopeSplit[0], 10, 32)
 
-	serviceRegistry := registry.NewServiceRegistry(false)
+	serviceRegistry := NewServiceRegistry(false)
 
 	for slotNo := int32(startSlotNo); slotNo <= int32(endSlotNo); slotNo++ {
 		s.slots.Set(slotNo, NewSlot(slotNo, serviceRegistry))
@@ -159,7 +148,7 @@ func (s *Slots) init(slotScope string) {
 	startSlotNo, _ := strconv.ParseInt(slotScopeSplit[0], 10, 32)
 	endSlotNo, _ := strconv.ParseInt(slotScopeSplit[0], 10, 32)
 
-	serviceRegistry := registry.NewServiceRegistry(false)
+	serviceRegistry := NewServiceRegistry(false)
 
 	for slotNo := int32(startSlotNo); slotNo <= int32(endSlotNo); slotNo++ {
 		s.slots.Set(slotNo, NewSlot(slotNo, serviceRegistry))
@@ -172,10 +161,10 @@ func (s *Slots) PutSlot(slotNo int32, slot *Slot) {
 
 type Slot struct {
 	slotNo          int32
-	ServiceRegistry registry.ServiceRegistry
+	ServiceRegistry *ServiceRegistry
 }
 
-func NewSlot(slotNo int32, serviceRegistry registry.ServiceRegistry) *Slot {
+func NewSlot(slotNo int32, serviceRegistry *ServiceRegistry) *Slot {
 	return &Slot{slotNo, serviceRegistry}
 }
 
@@ -187,6 +176,6 @@ func (s *Slot) getSlotData() []byte {
 	return s.ServiceRegistry.GetData()
 }
 
-func (s *Slot) updateSlotData(serviceInstances []registry.ServiceInstance) {
+func (s *Slot) updateSlotData(serviceInstances []ServiceInstance) {
 	s.ServiceRegistry.UpdateData(serviceInstances)
 }

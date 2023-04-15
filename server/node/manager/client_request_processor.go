@@ -15,6 +15,6 @@ func register(request *pkgrpc.MessageEntity) *pkgrpc.MessageResponse {
 	return &pkgrpc.MessageResponse{
 		Success: true,
 		Code:    pkgrpc.MessageResponse_REGISTER_SUCCESS,
-		Data:    &pkgrpc.MessageEntity{RequestId: request.GetRequestId()},
+		Result:  &pkgrpc.MessageEntity{RequestId: request.GetRequestId()},
 	}
 }

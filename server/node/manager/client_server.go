@@ -57,15 +57,14 @@ func process(conn net.Conn) {
 				return
 			}
 			if err != nil {
-				log.Error.Println("Client io server process decode message failed, err: ", err)
+				log.Error.Println("Client io server connection client exception, err: ", err)
 				return
 			}
 			message := &pkgrpc.MessageEntity{}
 			_ = utils.Decode(requestBodyBytes, message)
 			log.Info.Println("Receive to client message: ", utils.ToJson(message))
 			response := processRequest(connection.ConnectionId, message)
-			messageQueues, _ := GetClientMessageQueuesInstance().messageQueues.Get(connection.ConnectionId)
-			messageQueues.Put(*response)
+			GetClientMessageQueuesInstance().putMessage(connection.ConnectionId, response)
 		}
 	}()
 
@@ -89,7 +88,6 @@ func process(conn net.Conn) {
 			}
 		}
 	}()
-
 }
 
 type ClientConnection struct {
@@ -135,6 +133,11 @@ func GetClientMessageQueuesInstance() *ClientMessageQueues {
 
 func (c *ClientMessageQueues) initMessageQueue(clientConnectionId string) {
 	c.messageQueues.Set(clientConnectionId, queue.NewArray[pkgrpc.MessageResponse]())
+}
+
+func (c *ClientMessageQueues) putMessage(clientConnectionId string, message *pkgrpc.MessageResponse) {
+	messageQueue, _ := c.messageQueues.Get(clientConnectionId)
+	messageQueue.Put(*message)
 }
 
 type ClientRequestProcessor struct {

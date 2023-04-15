@@ -72,7 +72,7 @@ message MessageResponse {
   ResponseCode code = 1;
   bool success = 2;
   string message = 3;
-  MessageEntity data = 4;
+  MessageEntity result = 4;
 }
 
 message ControllerVote {
@@ -91,4 +91,17 @@ message HeartbeatRequest {
   string serviceName = 1;
   string serviceInstanceIp = 2;
   int32 serviceInstancePort = 3;
+}
+
+message FetchServerNodeIdResponse {
+  int32 serverNodeId = 1;
+}
+
+message SubscribeRequest {
+  string serviceName = 1;
+}
+
+message ServiceChangedRequest {
+  string serviceName = 1;
+  repeated string serviceInstanceAddresses = 2;
 }

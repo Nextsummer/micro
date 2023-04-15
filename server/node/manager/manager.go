@@ -233,10 +233,10 @@ func startReadIOThead(remoteNodeId int32, receiveQueue *queue.Array[pkgrpc.Messa
 			Fatal()
 			return
 		}
-		if !response.GetSuccess() || response.GetData() == nil {
+		if !response.GetSuccess() || response.GetResult() == nil {
 			log.Error.Printf("从节点[%v]读取数据失败, error message: %v", remoteNodeId, response.GetSuccess())
 		}
-		receiveQueue.Put(*response.GetData())
+		receiveQueue.Put(*response.GetResult())
 	}
 }
 

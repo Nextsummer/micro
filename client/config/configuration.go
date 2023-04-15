@@ -2,6 +2,7 @@ package config
 
 import (
 	"flag"
+	"fmt"
 	"github.com/Nextsummer/micro/pkg/log"
 	"github.com/Nextsummer/micro/pkg/queue"
 	"github.com/Nextsummer/micro/pkg/utils"
@@ -107,4 +108,24 @@ type Server struct {
 	id      int32
 	address string
 	port    int32
+}
+
+func NewServer(address string, port int32) *Server {
+	return &Server{address: address, port: port}
+}
+
+func (s *Server) GetRemoteSocketAddress() string {
+	return fmt.Sprintf("%s:%d", s.address, s.port)
+}
+
+func (s *Server) SetId(id int32) {
+	s.id = id
+}
+
+func (s *Server) GetId() int32 {
+	return s.id
+}
+
+func (s *Server) String() string {
+	return utils.ToJson(s)
 }

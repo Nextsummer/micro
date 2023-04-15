@@ -138,8 +138,9 @@ func (c *Controller) executeSlotsReplicaAllocation() {
 		var replicaNodeId int32
 		for {
 			if !nodeIds.IsEmpty() {
+				// todo To be optimized
 				replicaNodeId = nodeIds.RandomTake()
-				if nodeId != replicaNodeId {
+				if nodeId != replicaNodeId || nodeIds.IsEmpty() {
 					break
 				}
 				nodeIds.Put(replicaNodeId)

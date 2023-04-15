@@ -39,8 +39,8 @@ type Configuration struct {
 	DataDir                    string //数据存储目录
 	ClusterNodeCount           int32  //集群节点总数量
 	ControllerCandidateServers string //controller候选节点的机器列表
-	heartbeatCheckInterval     int32  //心跳检查时间间隔
-	heartbeatTimeoutPeriod     int32  //心跳超时时间
+	HeartbeatCheckInterval     int32  //心跳检查时间间隔
+	HeartbeatTimeoutPeriod     int32  //心跳超时时间
 }
 
 func GetConfigurationInstance() *Configuration {
@@ -63,8 +63,8 @@ func Parse(configPath string) {
 	configuration.DataDir = validateDataDir(configMap[DataDir])
 	configuration.ClusterNodeCount = validateClusterNodeCount(configMap[ClusterNodeCount])
 	configuration.ControllerCandidateServers = validateControllerCandidateServers(configMap[ControllerCandidateServers])
-	configuration.heartbeatCheckInterval = validateHeartbeatCheckInterval(configMap[HeartbeatCheckInterval])
-	configuration.heartbeatTimeoutPeriod = validateHeartbeatTimeoutPeriod(configMap[HeartbeatTimeoutPeriod])
+	configuration.HeartbeatCheckInterval = validateHeartbeatCheckInterval(configMap[HeartbeatCheckInterval])
+	configuration.HeartbeatTimeoutPeriod = validateHeartbeatTimeoutPeriod(configMap[HeartbeatTimeoutPeriod])
 }
 
 // 校验节点id参数
@@ -163,8 +163,8 @@ func PrintConfigLog() {
 	log.Info.Printf("[%s]=%d", ClusterNodeCount, configuration.ClusterNodeCount)
 	log.Info.Printf("[%s]=%s", DataDir, configuration.DataDir)
 	log.Info.Printf("[%s]=%s", ControllerCandidateServers, configuration.ControllerCandidateServers)
-	log.Info.Printf("[%s]=%d", HeartbeatCheckInterval, configuration.heartbeatCheckInterval)
-	log.Info.Printf("[%s]=%d", HeartbeatTimeoutPeriod, configuration.heartbeatTimeoutPeriod)
+	log.Info.Printf("[%s]=%d", HeartbeatCheckInterval, configuration.HeartbeatCheckInterval)
+	log.Info.Printf("[%s]=%d", HeartbeatTimeoutPeriod, configuration.HeartbeatTimeoutPeriod)
 }
 
 // GetOtherControllerCandidateServers 获取除自己以外的其他controller候选节点的地址
