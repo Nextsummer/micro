@@ -28,6 +28,22 @@ func NewServiceInstance(serviceName, serviceInstanceIp string, serviceInstancePo
 	}
 }
 
+func NewRegisterToServiceInstance(request pkgrpc.RegisterRequest) *ServiceInstance {
+	return &ServiceInstance{
+		serviceName:         request.GetServiceName(),
+		serviceInstanceIp:   request.GetServiceInstanceIp(),
+		serviceInstancePort: request.GetServiceInstancePort(),
+	}
+}
+
+func NewHeartbeatToServiceInstance(request pkgrpc.HeartbeatRequest) *ServiceInstance {
+	return &ServiceInstance{
+		serviceName:         request.GetServiceName(),
+		serviceInstanceIp:   request.GetServiceInstanceIp(),
+		serviceInstancePort: request.GetServiceInstancePort(),
+	}
+}
+
 func (s ServiceInstance) String() string {
 	return utils.ToJson(s)
 }
@@ -47,28 +63,29 @@ func generatedServiceInstanceId(serviceName, serviceInstanceIp string, serviceIn
 
 type ServiceRegistry struct {
 	isReplica                  bool
-	serviceRegistryData        cmap.ConcurrentMap[string, *queue.Array[ServiceInstance]]
-	serviceInstanceData        cmap.ConcurrentMap[string, ServiceInstance]
-	serviceChangedListenerData cmap.ConcurrentMap[string, *queue.Array[ServiceChangedListener]]
+	serviceRegistryData        cmap.ConcurrentMap[string, *queue.Array[*ServiceInstance]]
+	serviceInstanceData        cmap.ConcurrentMap[string, *ServiceInstance]
+	serviceChangedListenerData cmap.ConcurrentMap[string, *queue.Array[*ServiceChangedListener]]
 	sync.RWMutex
 }
 
 func NewServiceRegistry(isReplica bool) *ServiceRegistry {
 	s := &ServiceRegistry{
-		isReplica:           isReplica,
-		serviceRegistryData: cmap.New[*queue.Array[ServiceInstance]](),
-		serviceInstanceData: cmap.New[ServiceInstance](),
+		isReplica:                  isReplica,
+		serviceRegistryData:        cmap.New[*queue.Array[*ServiceInstance]](),
+		serviceInstanceData:        cmap.New[*ServiceInstance](),
+		serviceChangedListenerData: cmap.New[*queue.Array[*ServiceChangedListener]](),
 	}
 	go s.HeartbeatCheck()
 	return s
 }
 
-func (s *ServiceRegistry) Register(serviceInstance ServiceInstance) {
+func (s *ServiceRegistry) Register(serviceInstance *ServiceInstance) {
 	serviceName := serviceInstance.serviceName
 	serviceInstances, ok := s.serviceRegistryData.Get(serviceName)
 	if !ok {
 		s.Lock()
-		serviceInstances = queue.NewArray[ServiceInstance]()
+		serviceInstances = queue.NewArray[*ServiceInstance]()
 		s.serviceRegistryData.Set(serviceName, serviceInstances)
 		s.Unlock()
 	}
@@ -80,7 +97,7 @@ func (s *ServiceRegistry) Register(serviceInstance ServiceInstance) {
 		serviceChangedListeners, ok := s.serviceChangedListenerData.Get(serviceName)
 		if !ok {
 			s.RWMutex.Lock()
-			serviceChangedListeners = queue.NewArray[ServiceChangedListener]()
+			serviceChangedListeners = queue.NewArray[*ServiceChangedListener]()
 			s.serviceChangedListenerData.Set(serviceName, serviceChangedListeners)
 		}
 
@@ -90,56 +107,54 @@ func (s *ServiceRegistry) Register(serviceInstance ServiceInstance) {
 			if !ok {
 				continue
 			}
-			changedListenersIter[i].onChange(serviceName, *serviceRegistryInfo)
+			changedListenersIter[i].onChange(serviceName, serviceRegistryInfo)
 		}
 	}
 }
 
-func (s *ServiceRegistry) Heartbeat(serviceInstance ServiceInstance) {
+func (s *ServiceRegistry) Heartbeat(serviceInstance *ServiceInstance) {
 	serviceInstanceId := serviceInstance.getServiceInstanceId()
-	serviceInstance, ok := s.serviceInstanceData.Get(serviceInstanceId)
+	serviceInstanceTemp, ok := s.serviceInstanceData.Get(serviceInstanceId)
 	if !ok {
 		s.RWMutex.Lock()
-		serviceInstance, ok = s.serviceInstanceData.Get(serviceInstanceId)
+		serviceInstanceTemp = serviceInstance
+		serviceInstances, ok := s.serviceRegistryData.Get(serviceInstanceId)
 		if !ok {
-			s.serviceInstanceData.Set(serviceInstanceId, serviceInstance)
-			serviceInstances, ok := s.serviceRegistryData.Get(serviceInstanceId)
-			if !ok {
-				s.serviceRegistryData.Set(serviceInstanceId, queue.NewArray[ServiceInstance]())
-			}
-			serviceInstances.Put(serviceInstance)
+			serviceInstances = queue.NewArray[*ServiceInstance]()
+			s.serviceRegistryData.Set(serviceInstanceId, serviceInstances)
 		}
+		serviceInstances.Put(serviceInstance)
 		s.RWMutex.Unlock()
 	}
-	serviceInstance.latestHeartbeatTime = time.Now().Unix()
-	log.Info.Printf("Received to %d heartbeat.", serviceInstance.getServiceInstanceId())
+	serviceInstanceTemp.latestHeartbeatTime = time.Now().Unix()
+	log.Info.Printf("Received to %s heartbeat.", serviceInstance.getServiceInstanceId())
 }
 
 // Service subscription
-func (s *ServiceRegistry) subscribe(clientConnectionId, serviceName string) *queue.Array[ServiceInstance] {
+func (s *ServiceRegistry) subscribe(clientConnectionId, serviceName string) *queue.Array[*ServiceInstance] {
 	serviceChangedListeners, ok := s.serviceChangedListenerData.Get(serviceName)
 	if !ok {
 		s.RWMutex.Lock()
-		s.serviceChangedListenerData.Set(serviceName, queue.NewArray[ServiceChangedListener]())
+		s.serviceChangedListenerData.Set(serviceName, queue.NewArray[*ServiceChangedListener]())
 		s.RWMutex.Unlock()
 	}
-	serviceChangedListeners.Put(ServiceChangedListener{clientConnectionId})
+	serviceChangedListeners.Put(&ServiceChangedListener{clientConnectionId})
 
 	serviceRegistryInfo, ok := s.serviceRegistryData.Get(serviceName)
 	if !ok {
-		return queue.NewArray[ServiceInstance]()
+		return queue.NewArray[*ServiceInstance]()
 	}
 	return serviceRegistryInfo
 
 }
 
-func (s *ServiceRegistry) UpdateData(serviceInstances []ServiceInstance) {
+func (s *ServiceRegistry) UpdateData(serviceInstances []*ServiceInstance) {
 	for _, serviceInstance := range serviceInstances {
 		serviceName := serviceInstance.serviceName
 
 		serviceInstances, ok := s.serviceRegistryData.Get(serviceName)
 		if !ok {
-			s.serviceRegistryData.Set(serviceName, queue.NewArray[ServiceInstance]())
+			s.serviceRegistryData.Set(serviceName, queue.NewArray[*ServiceInstance]())
 		}
 		serviceInstances.Put(serviceInstance)
 
@@ -152,7 +167,7 @@ func (s *ServiceRegistry) IsEmpty() bool {
 }
 
 func (s *ServiceRegistry) GetData() []byte {
-	var allServiceInstances []ServiceInstance
+	var allServiceInstances []*ServiceInstance
 	for serviceInstances := range s.serviceRegistryData.IterBuffered() {
 		allServiceInstances = append(allServiceInstances, serviceInstances.Val.Iter()...)
 	}
@@ -175,7 +190,7 @@ func (s *ServiceRegistry) HeartbeatCheck() {
 					serviceInstances.Remove(serviceInstance)
 					removeServiceInstanceIds = append(removeServiceInstanceIds, serviceInstance.serviceName)
 					changedServiceNames.Add(serviceInstance.getServiceInstanceId())
-					log.Warn.Printf("No heartbeat is reported for the service instance within %s seconds, it has been removed: %s", configuration.HeartbeatTimeoutPeriod, serviceInstance)
+					log.Warn.Printf("No heartbeat is reported for the service instance within %d seconds, it has been removed: %s", configuration.HeartbeatTimeoutPeriod, serviceInstance)
 				}
 			}
 		}
@@ -196,7 +211,7 @@ func (s *ServiceRegistry) HeartbeatCheck() {
 					if !ok {
 						continue
 					}
-					changedListenersIter[j].onChange(serviceName, *serviceRegistryInfo)
+					changedListenersIter[j].onChange(serviceName, serviceRegistryInfo)
 				}
 			}
 		}
@@ -212,7 +227,7 @@ type ServiceChangedListener struct {
 	clientConnectionId string
 }
 
-func (s ServiceChangedListener) onChange(serviceName string, serviceInstances queue.Array[ServiceInstance]) {
+func (s ServiceChangedListener) onChange(serviceName string, serviceInstances *queue.Array[*ServiceInstance]) {
 	var serviceInstanceAddress []string
 	serviceIter := serviceInstances.Iter()
 	for i := range serviceIter {

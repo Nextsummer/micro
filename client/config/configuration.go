@@ -1,7 +1,6 @@
 package config
 
 import (
-	"flag"
 	"fmt"
 	"github.com/Nextsummer/micro/pkg/log"
 	"github.com/Nextsummer/micro/pkg/queue"
@@ -41,9 +40,9 @@ func GetConfigurationInstance() *Configuration {
 }
 
 func (c *Configuration) init() {
-	var configPath = ""
-	flag.StringVar(&configPath, "configPath", "", "client config path")
-	flag.Parse()
+	var configPath = "C:\\Users\\Administrator\\go\\src\\github.com\\Nextsummer\\micro\\conf\\client.properties"
+	//flag.StringVar(&configPath, "configPath", "", "client config path")
+	//flag.Parse()
 
 	configMap := utils.LoadConfigurationFile(configPath)
 	servers := validateServers(configMap[ControllerCandidateServers])

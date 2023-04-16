@@ -112,6 +112,35 @@ func (s *ServerMessageReceiver) run() {
 			utils.BytesToJson(data, &controllerNodeId)
 			s.controllerNodeIdQueue.Put(controllerNodeId)
 			log.Info.Println("Received controller node id: ", controllerNodeId)
+		} else if pkgrpc.MessageEntity_CHANGE_REPLICA_TO_SLOTS == messageType {
+			slots := queue.NewArray[string]()
+			utils.BytesToJson(data, &slots)
+			GetSlotManagerInstance().changeReplicaToSlots(slots)
+		} else if pkgrpc.MessageEntity_REFRESH_REPLICA_NODE_ID == messageType {
+			var newReplicaNodeId int32
+			utils.BytesToJson(data, &newReplicaNodeId)
+			GetSlotManagerInstance().refreshReplicaNodeId(newReplicaNodeId)
+		} else if pkgrpc.MessageEntity_REFRESH_REPLICA_SLOTS == messageType {
+			replicaSlots := queue.NewArray[string]()
+			utils.BytesToJson(data, &replicaSlots)
+			GetSlotManagerInstance().refreshReplicaSlots(replicaSlots)
+		} else if pkgrpc.MessageEntity_REQUEST_SLOTS_DATA == messageType {
+			var candidateNodeId int32
+			utils.BytesToJson(data, &candidateNodeId)
+			controller := getControllerInstance()
+			controller.syncSlotsAllocationToCandidateNodeId(candidateNodeId)
+			controller.syncSlotsReplicaAllocationToCandidateNodeId(candidateNodeId)
+			controller.syncReplicaNodeIdsToCandidateNodeId(candidateNodeId)
+		} else if pkgrpc.MessageEntity_UPDATE_NODE_SLOTS == messageType {
+			slotsList := queue.NewArray[string]()
+			utils.BytesToJson(data, &slotsList)
+			GetSlotManagerInstance().initSlots(slotsList)
+		} else if pkgrpc.MessageEntity_UPDATE_REPLICA_NODE_ID == messageType {
+
+		} else if pkgrpc.MessageEntity_TRANSFER_SLOTS == messageType {
+
+		} else if pkgrpc.MessageEntity_UPDATE_SLOTS == messageType {
+
 		}
 	}
 }

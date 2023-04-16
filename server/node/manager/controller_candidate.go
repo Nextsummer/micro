@@ -1,6 +1,7 @@
 package manager
 
 import (
+	"fmt"
 	pkgrpc "github.com/Nextsummer/micro/pkg/grpc"
 	"github.com/Nextsummer/micro/pkg/log"
 	"github.com/Nextsummer/micro/pkg/queue"
@@ -25,9 +26,9 @@ type ControllerCandidate struct {
 func GetControllerCandidateInstance() *ControllerCandidate {
 	controllerCandidateOnce.Do(func() {
 		controllerCandidate = &ControllerCandidate{
-			slotsAllocation:        cmap.NewWithCustomShardingFunction[int32, *queue.Array[string]](Int32HashCode),
-			slotsReplicaAllocation: cmap.NewWithCustomShardingFunction[int32, *queue.Array[string]](Int32HashCode),
-			replicaNodeIds:         cmap.NewWithCustomShardingFunction[int32, int32](Int32HashCode),
+			slotsAllocation:        cmap.NewWithCustomShardingFunction[int32, *queue.Array[string]](utils.Int32HashCode),
+			slotsReplicaAllocation: cmap.NewWithCustomShardingFunction[int32, *queue.Array[string]](utils.Int32HashCode),
+			replicaNodeIds:         cmap.NewWithCustomShardingFunction[int32, int32](utils.Int32HashCode),
 		}
 	})
 	return controllerCandidate
@@ -196,4 +197,17 @@ func (c *ControllerCandidate) waitReplicaNodeIds() {
 		break
 	}
 	persist.Persist(utils.ToJsonByte(c.replicaNodeIds), ReplicaNodeIdsFilename)
+}
+
+func getServerAddresses() (serverAddresses []string) {
+	serverNodeManager := GetRemoteServerNodeManagerInstance()
+	serverNodes := serverNodeManager.getRemoteServerNodes()
+
+	for i := range serverNodes {
+		serverNode := serverNodes[i]
+		serverAddresses = append(serverAddresses, fmt.Sprintf("%d:%s:%d", serverNode.GetNodeId(), serverNode.GetIp(), serverNode.GetClientPort()))
+	}
+	configuration := config.GetConfigurationInstance()
+	serverAddresses = append(serverAddresses, fmt.Sprintf("%d:%s:%d", configuration.NodeId, configuration.NodeIp, configuration.NodeClientTcpPort))
+	return serverAddresses
 }

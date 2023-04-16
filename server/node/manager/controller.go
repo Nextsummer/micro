@@ -262,7 +262,16 @@ func sendControllerNodeId() {
 }
 
 func (c *Controller) syncSlotsAllocationToCandidateNodeId(candidateNodeId int32) {
-	slotsAllocationBytes := utils.ToJsonByte(c.slotsAllocation)
 	GetServerNetworkManagerInstance().sendMessage(candidateNodeId,
-		pkgrpc.MessageEntity_SLOTS_ALLOCATION, slotsAllocationBytes)
+		pkgrpc.MessageEntity_SLOTS_ALLOCATION, utils.ToJsonByte(c.slotsAllocation))
+}
+
+func (c *Controller) syncSlotsReplicaAllocationToCandidateNodeId(candidateNodeId int32) {
+	GetServerNetworkManagerInstance().sendMessage(candidateNodeId,
+		pkgrpc.MessageEntity_SLOTS_REPLICA_ALLOCATION, utils.ToJsonByte(c.slotsReplicaAllocation))
+}
+
+func (c *Controller) syncReplicaNodeIdsToCandidateNodeId(candidateNodeId int32) {
+	GetServerNetworkManagerInstance().sendMessage(candidateNodeId,
+		pkgrpc.MessageEntity_REPLICA_NODE_IDS, utils.ToJsonByte(c.replicaNodeIds))
 }

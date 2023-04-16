@@ -1,6 +1,7 @@
 package manager
 
 import (
+	pkgrpc "github.com/Nextsummer/micro/pkg/grpc"
 	"github.com/Nextsummer/micro/pkg/log"
 	"github.com/Nextsummer/micro/pkg/queue"
 	"github.com/Nextsummer/micro/pkg/utils"
@@ -87,6 +88,11 @@ func (s *SlotManager) initReplicaNodeId(replicaNodeId int32) {
 	log.Info.Println("The replica node id is initialized.")
 }
 
+func (s *SlotManager) getSlot(serviceName string) *Slot {
+	slot, _ := s.slots.GetSlot(utils.RouteSlot(serviceName))
+	return slot
+}
+
 // GetSlotReplica get slot replica
 func (s *SlotManager) GetSlotReplica(serviceName string) *Slot {
 	slotNo := utils.RouteSlot(serviceName)
@@ -104,6 +110,56 @@ func (s *SlotManager) GetSlotReplica(serviceName string) *Slot {
 	}
 	slot, _ := slotsReplica.slots.Get(slotNo)
 	return slot
+}
+
+// Convert the copy to slots
+func (s *SlotManager) changeReplicaToSlots(replicaSlotsList *queue.Array[string]) {
+	// Take these slots out of the replica slots that the current node manages.
+	// Move all the copy slots available to the official slot data set.
+	for _, replicaSlots := range replicaSlotsList.Iter() {
+		slotsReplica, ok := s.slotsReplicas.Get(replicaSlots)
+		if !ok {
+			continue
+		}
+		for iter := range slotsReplica.slots.IterBuffered() {
+			s.slots.PutSlot(iter.Key, iter.Val)
+		}
+	}
+
+	for _, replicaSlots := range replicaSlotsList.Iter() {
+		s.slotsReplicas.Remove(replicaSlots)
+	}
+	log.Info.Printf("Replica slots [%s] all of them will be turned into regular employees.", replicaSlotsList)
+}
+
+// refresh slots replica
+func (s *SlotManager) refreshReplicaSlots(replicaSlotsList *queue.Array[string]) {
+	log.Info.Printf("The slot copy data is refreshed, old slots replica include [%s], new slots replica data is [%s]", s.slotsReplicas.Keys(), replicaSlotsList)
+
+	for _, replicaSlots := range replicaSlotsList.Iter() {
+		if !s.slotsReplicas.Has(replicaSlots) {
+			slotsReplica := NewSlotsReplica()
+			slotsReplica.init(replicaSlots)
+			s.slotsReplicas.Set(replicaSlots, slotsReplica)
+		}
+	}
+	persist.Persist(utils.ToJsonByte(replicaSlotsList), NodeSlotsReplicasFilename)
+}
+
+// The slot data is transferred
+func (s *SlotManager) transferSlots(targetNodeId int32, slots string) {
+	slotsSplit := strings.Split(slots, ",")
+	startSlotNo, _ := strconv.ParseInt(slotsSplit[0], 10, 32)
+	endSlotNo, _ := strconv.ParseInt(slotsSplit[1], 10, 32)
+	for slotNo := int32(startSlotNo); slotNo <= int32(endSlotNo); slotNo++ {
+		slot, ok := s.slots.GetSlot(slotNo)
+		if !ok {
+			continue
+		}
+		GetServerNetworkManagerInstance().sendMessage(targetNodeId,
+			pkgrpc.MessageEntity_UPDATE_SLOTS, slot.ServiceRegistry.GetData())
+		s.slots.RemoteSlot(slotNo)
+	}
 }
 
 func (s *SlotManager) refreshReplicaNodeId(newReplicaNodeId int32) {
@@ -124,7 +180,7 @@ func (s *SlotsReplica) init(slotScope string) {
 	slotScopeSplit := strings.Split(slotScope, ",")
 
 	startSlotNo, _ := strconv.ParseInt(slotScopeSplit[0], 10, 32)
-	endSlotNo, _ := strconv.ParseInt(slotScopeSplit[0], 10, 32)
+	endSlotNo, _ := strconv.ParseInt(slotScopeSplit[1], 10, 32)
 
 	serviceRegistry := NewServiceRegistry(false)
 
@@ -146,7 +202,7 @@ func (s *Slots) init(slotScope string) {
 	slotScopeSplit := strings.Split(slotScope, ",")
 
 	startSlotNo, _ := strconv.ParseInt(slotScopeSplit[0], 10, 32)
-	endSlotNo, _ := strconv.ParseInt(slotScopeSplit[0], 10, 32)
+	endSlotNo, _ := strconv.ParseInt(slotScopeSplit[1], 10, 32)
 
 	serviceRegistry := NewServiceRegistry(false)
 
@@ -157,6 +213,14 @@ func (s *Slots) init(slotScope string) {
 
 func (s *Slots) PutSlot(slotNo int32, slot *Slot) {
 	s.slots.Set(slotNo, slot)
+}
+
+func (s *Slots) GetSlot(slotNo int32) (*Slot, bool) {
+	return s.slots.Get(slotNo)
+}
+
+func (s *Slots) RemoteSlot(slotNo int32) {
+	s.slots.Remove(slotNo)
 }
 
 type Slot struct {
@@ -176,6 +240,6 @@ func (s *Slot) getSlotData() []byte {
 	return s.ServiceRegistry.GetData()
 }
 
-func (s *Slot) updateSlotData(serviceInstances []ServiceInstance) {
+func (s *Slot) updateSlotData(serviceInstances []*ServiceInstance) {
 	s.ServiceRegistry.UpdateData(serviceInstances)
 }

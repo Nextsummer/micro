@@ -2,9 +2,7 @@ package queue
 
 import (
 	"encoding/json"
-	"fmt"
 	"math/rand"
-	"strings"
 	"sync"
 )
 
@@ -45,13 +43,14 @@ func (a *Array[T]) Remove(t T) {
 	a.Lock()
 	defer a.Unlock()
 
-	if len(a.t) > 0 {
-		for i := range a.t {
-			if strings.EqualFold(fmt.Sprintf("%v", a.t[i]), fmt.Sprintf("%v", t)) {
-				a.t = append(a.t[:i], a.t[i+1:]...)
-			}
-		}
-	}
+	// todo To be solved
+	//if len(a.t) > 0 {
+	//	for i := range a.t {
+	//		if strings.EqualFold(fmt.Sprintf("%v", a.t[i]), fmt.Sprintf("%v", t)) {
+	//			a.t = append(a.t[:i], a.t[i+1:]...)
+	//		}
+	//	}
+	//}
 }
 
 func (a *Array[T]) RandomTake() (t T) {

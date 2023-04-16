@@ -101,7 +101,15 @@ message SubscribeRequest {
   string serviceName = 1;
 }
 
+message SubscribeResponse {
+  repeated string serviceInstanceAddresses = 1;
+}
+
 message ServiceChangedRequest {
   string serviceName = 1;
   repeated string serviceInstanceAddresses = 2;
+}
+
+message FetchServerAddressesResponse {
+  repeated string serverAddresses = 1;
 }

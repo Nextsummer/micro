@@ -31,7 +31,7 @@ type ServiceInstance struct {
 	serverConnection              *ServerConnection
 	server                        *config.Server
 	excludedRemoteAddress         string
-	RunningState
+	*RunningState
 }
 
 func NewServiceInstance() *ServiceInstance {
@@ -40,6 +40,7 @@ func NewServiceInstance() *ServiceInstance {
 		responses:               cmap.New[*pkgrpc.MessageResponse](),
 		slotsAllocation:         cmap.NewWithCustomShardingFunction[int32, *queue.Array[string]](utils.Int32HashCode),
 		servers:                 cmap.NewWithCustomShardingFunction[int32, *config.Server](utils.Int32HashCode),
+		RunningState:            NewRunningState(),
 	}
 	go s.networkIO()
 	return s
@@ -48,6 +49,7 @@ func NewServiceInstance() *ServiceInstance {
 func (s *ServiceInstance) Init() {
 	s.chooseControllerCandidate()
 	s.controllerCandidateConnection = s.connectServer(s.controllerCandidate)
+	s.serverConnection = s.controllerCandidateConnection
 	id := s.fetchServerNodeId(s.controllerCandidate)
 	s.controllerCandidate.SetId(id)
 	s.controllerCandidateConnection.nodeId = id
@@ -56,9 +58,7 @@ func (s *ServiceInstance) Init() {
 	s.fetchServerAddresses(s.controllerCandidate)
 
 	s.server = s.routeServer(config.GetConfigurationInstance().ServiceName)
-	if id == s.server.GetId() {
-		s.serverConnection = s.controllerCandidateConnection
-	} else {
+	if id != s.server.GetId() {
 		s.serverConnection = s.connectServer(*s.server)
 	}
 }
@@ -87,19 +87,19 @@ func (s *ServiceInstance) connectServer(server config.Server) *ServerConnection 
 	}
 	log.Info.Println("Connect to the server node: ", address)
 	serverConnection := NewServerConnection(conn)
+	GetServerMessageQueuesInstance().init(serverConnection.connectionId)
 	s.serverConnectionManager.addServerConnection(serverConnection)
 	return serverConnection
 }
 
 func (s *ServiceInstance) networkIO() {
-	for {
-		if s.serverConnection != nil {
-			break
-		}
-	}
 
 	go func() {
 		for s.IsRunning() {
+			if s.serverConnection == nil {
+				continue
+			}
+
 			responseBodyBytes, err := utils.ReadByte(s.serverConnection.conn)
 			if err == io.EOF {
 				return
@@ -118,6 +118,9 @@ func (s *ServiceInstance) networkIO() {
 
 	go func() {
 		for s.IsRunning() {
+			if s.serverConnection == nil {
+				continue
+			}
 			requestQueue, ok := GetServerMessageQueuesInstance().requestQueues.Get(s.serverConnection.connectionId)
 			if !ok {
 				continue
@@ -154,7 +157,7 @@ func (s *ServiceInstance) fetchSlotsAllocation(controllerCandidate config.Server
 	slotsAllocation := cmap.NewWithCustomShardingFunction[int32, *queue.Array[string]](utils.Int32HashCode)
 	utils.BytesToJson(response.GetResult().GetData(), &slotsAllocation)
 	s.slotsAllocation = slotsAllocation
-	log.Info.Println("Pull the slot allocation data: ", response.GetSuccess())
+	log.Info.Println("Pull the slot allocation data: ", response)
 }
 
 func (s *ServiceInstance) fetchServerAddresses(controllerCandidate config.Server) {
@@ -162,13 +165,13 @@ func (s *ServiceInstance) fetchServerAddresses(controllerCandidate config.Server
 	if !response.GetSuccess() {
 		log.Error.Fatalln("Fetch server addresses failed, err: ", response.GetMessage())
 	}
-	serverAddresses := queue.NewArray[string]()
-	utils.BytesToJson(response.GetResult().GetData(), &serverAddresses)
+	fetchServerAddressesResponse := pkgrpc.FetchServerAddressesResponse{}
+	utils.Decode(response.GetResult().GetData(), &fetchServerAddressesResponse)
 
-	if !serverAddresses.IsEmpty() {
-		serverArray := serverAddresses.Iter()
-		for i := range serverArray {
-			serverAddressSplit := strings.Split(serverArray[i], ":")
+	serverAddresses := fetchServerAddressesResponse.GetServerAddresses()
+	if serverAddresses != nil {
+		for i := range serverAddresses {
+			serverAddressSplit := strings.Split(serverAddresses[i], ":")
 			if len(serverAddressSplit) != 3 {
 				continue
 			}
@@ -202,7 +205,6 @@ func (s *ServiceInstance) locateServerBySlot(slotNo int32) (int32, bool) {
 			if slotNo >= int32(startSlot) && slotNo <= int32(endSlot) {
 				return slotsAllocation.Key, true
 			}
-
 		}
 	}
 	return 0, false
@@ -238,6 +240,7 @@ func (s *ServiceInstance) heartbeat() {
 			ServiceInstanceIp:   configuration.ServiceInstanceIp,
 			ServiceInstancePort: configuration.ServiceInstancePort,
 		}))
+		// todo The blocking problem needs to be solved！
 		s.sendRequest(request, *s.server)
 		log.Info.Println("Send heartbeat...")
 
@@ -266,11 +269,11 @@ func (s *ServiceInstance) Subscribe(serviceName string) *queue.Array[ServiceInst
 		log.Error.Println("Client ")
 		return serviceInstanceAddress
 	}
-	serviceInstanceAddressInfo := queue.NewArray[string]()
-	utils.BytesToJson(response.GetResult().GetData(), &serviceInstanceAddressInfo)
-	serviceInstanceAddressInfoIter := serviceInstanceAddressInfo.Iter()
-	for i := range serviceInstanceAddressInfoIter {
-		serviceInstanceAddressInfoSplit := strings.Split(serviceInstanceAddressInfoIter[i], ",")
+	subscribeResponse := pkgrpc.SubscribeResponse{}
+	utils.BytesToJson(response.GetResult().GetData(), &subscribeResponse)
+	serviceInstanceAddresses := subscribeResponse.GetServiceInstanceAddresses()
+	for i := range serviceInstanceAddresses {
+		serviceInstanceAddressInfoSplit := strings.Split(serviceInstanceAddresses[i], ",")
 		port, _ := strconv.ParseInt(serviceInstanceAddressInfoSplit[2], 10, 32)
 		serviceInstanceAddress.Put(ServiceInstanceAddress{serviceInstanceAddressInfoSplit[0], serviceInstanceAddressInfoSplit[1], int32(port)})
 	}

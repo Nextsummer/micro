@@ -5,6 +5,7 @@ import (
 	"github.com/Nextsummer/micro/pkg/log"
 	"github.com/Nextsummer/micro/pkg/utils"
 	"github.com/Nextsummer/micro/server/config"
+	"github.com/google/uuid"
 	"io"
 	"net"
 	"testing"
@@ -28,10 +29,10 @@ func TestClientConnection(t *testing.T) {
 	log.InitLog("/temp")
 
 	//array := queue.NewArray[net.Conn]()
-	for i := 0; i < 1000; i++ {
-		go connectionClient()
-	}
-
+	//for i := 0; i < 1000; i++ {
+	//	go connectionClient()
+	//}
+	connectionClient()
 	for {
 		time.Sleep(time.Second)
 
@@ -45,20 +46,19 @@ func TestClientConnection(t *testing.T) {
 }
 
 func connectionClient() net.Conn {
-	conn, err := net.Dial("tcp", "127.0.0.1:30000")
+	conn, err := net.Dial("tcp", "127.0.0.1:5002")
 	if err != nil {
 		panic(err)
 	}
 	defer conn.Close()
 
-	registerRequest := &pkgrpc.RegisterRequest{ServiceName: "hello"}
-	request := &pkgrpc.MessageEntity{
-		RequestId: "1",
-		Type:      pkgrpc.MessageEntity_CLIENT_REGISTER,
-		Data:      utils.Encode(registerRequest),
-	}
+	//registerRequest := &pkgrpc.RegisterRequest{ServiceName: "hello"}
+	//request := &pkgrpc.MessageEntity{
+	//	RequestId: "1",
+	//	Type:      pkgrpc.MessageEntity_CLIENT_FETCH_SERVER_NODE_ID,
+	//}
 
-	_, err = conn.Write(utils.Encode(request))
+	_, err = conn.Write(utils.Encode(NewMessageEntity(pkgrpc.MessageEntity_CLIENT_FETCH_SERVER_NODE_ID, nil)))
 	if err != nil {
 		panic(err)
 	}
@@ -79,4 +79,12 @@ func connectionClient() net.Conn {
 		break
 	}
 	return conn
+}
+
+func NewMessageEntity(messageType pkgrpc.MessageEntity_MessageType, data []byte) *pkgrpc.MessageEntity {
+	return &pkgrpc.MessageEntity{
+		RequestId: uuid.New().String(),
+		Type:      messageType,
+		Data:      data,
+	}
 }
