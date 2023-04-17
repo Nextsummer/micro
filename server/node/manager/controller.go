@@ -275,3 +275,29 @@ func (c *Controller) syncReplicaNodeIdsToCandidateNodeId(candidateNodeId int32) 
 	GetServerNetworkManagerInstance().sendMessage(candidateNodeId,
 		pkgrpc.MessageEntity_REPLICA_NODE_IDS, utils.ToJsonByte(c.replicaNodeIds))
 }
+
+func (c *Controller) sendNodeSlotsToNodeId(nodeId int32) {
+	slotsList, ok := c.slotsAllocation.Get(nodeId)
+	if !ok {
+		return
+	}
+	GetServerNetworkManagerInstance().sendMessage(nodeId,
+		pkgrpc.MessageEntity_NODE_SLOTS_REPLICAS, utils.ToJsonByte(slotsList))
+}
+
+func (c *Controller) sendReplicaNodeIdToNodeId(nodeId int32) {
+	replicaNodeId, ok := c.replicaNodeIds.Get(nodeId)
+	if !ok {
+		return
+	}
+	GetServerNetworkManagerInstance().sendMessage(nodeId,
+		pkgrpc.MessageEntity_REPLICA_NODE_ID, utils.ToJsonByte(replicaNodeId))
+}
+
+func (c *Controller) transferSlots(sourceNodeId, targetNodeId int32, slots string) {
+	GetServerNetworkManagerInstance().sendMessage(sourceNodeId,
+		pkgrpc.MessageEntity_TRANSFER_SLOTS, utils.Encode(&pkgrpc.TransferSlotsRequest{
+			TargetNodeId: targetNodeId,
+			Slots:        slots,
+		}))
+}

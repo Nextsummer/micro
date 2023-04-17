@@ -157,7 +157,10 @@ func (s *SlotManager) transferSlots(targetNodeId int32, slots string) {
 			continue
 		}
 		GetServerNetworkManagerInstance().sendMessage(targetNodeId,
-			pkgrpc.MessageEntity_UPDATE_SLOTS, slot.ServiceRegistry.GetData())
+			pkgrpc.MessageEntity_UPDATE_SLOTS, utils.Encode(&pkgrpc.UpdateSlotsRequest{
+				SlotNo:   slotNo,
+				SlotData: slot.ServiceRegistry.GetData(),
+			}))
 		s.slots.RemoteSlot(slotNo)
 	}
 }
@@ -165,6 +168,10 @@ func (s *SlotManager) transferSlots(targetNodeId int32, slots string) {
 func (s *SlotManager) refreshReplicaNodeId(newReplicaNodeId int32) {
 	log.Info.Printf("The replica node id is refreshed, old node id: %d, new node id: %d", s.slots.replicaNodeId, newReplicaNodeId)
 	s.slots.replicaNodeId = newReplicaNodeId
+}
+func (s *SlotManager) updateSlotData(slotNo int32, serviceInstances []*ServiceInstance) {
+	slot, _ := s.slots.GetSlot(slotNo)
+	slot.updateSlotData(serviceInstances)
 }
 
 type SlotsReplica struct {

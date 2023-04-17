@@ -1,6 +1,8 @@
 package queue
 
 import (
+	"fmt"
+	pkgrpc "github.com/Nextsummer/micro/pkg/grpc"
 	"github.com/Nextsummer/micro/pkg/log"
 	"testing"
 )
@@ -26,11 +28,16 @@ func TestClearAndClone(t *testing.T) {
 }
 
 func TestArray_Remove(t *testing.T) {
-	array := Array[string]{}
+	array := Array[pkgrpc.MessageResponse]{}
 
-	array.Put("string1")
-	array.Put("string2")
-	array.Put("string3")
+	response1 := pkgrpc.MessageResponse{Success: true, Message: "hello1"}
+	response2 := pkgrpc.MessageResponse{Success: true, Message: "hello2"}
 
-	array.Remove("string1")
+	array.Put(response1)
+	array.Put(response2)
+
+	array.Remove(response2)
+
+	fmt.Println(array.String())
+
 }

@@ -138,9 +138,15 @@ func (s *ServerMessageReceiver) run() {
 		} else if pkgrpc.MessageEntity_UPDATE_REPLICA_NODE_ID == messageType {
 
 		} else if pkgrpc.MessageEntity_TRANSFER_SLOTS == messageType {
-
+			transferSlotsRequest := pkgrpc.TransferSlotsRequest{}
+			_ = utils.Decode(data, &transferSlotsRequest)
+			GetSlotManagerInstance().transferSlots(transferSlotsRequest.GetTargetNodeId(), transferSlotsRequest.GetSlots())
 		} else if pkgrpc.MessageEntity_UPDATE_SLOTS == messageType {
-
+			updateSlotsRequest := pkgrpc.UpdateSlotsRequest{}
+			_ = utils.Decode(data, &updateSlotsRequest)
+			var allServiceInstances []*ServiceInstance
+			utils.BytesToJson(updateSlotsRequest.GetSlotData(), &allServiceInstances)
+			GetSlotManagerInstance().updateSlotData(updateSlotsRequest.GetSlotNo(), allServiceInstances)
 		}
 	}
 }

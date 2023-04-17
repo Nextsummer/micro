@@ -6,7 +6,8 @@
 3. 数据分片设计
 4. client组件
 5. 服务注册/订阅/续约/健康检查
+6. auto rebalance
 
 待实现
-1. auto rebalance
+1. HA 机制
 2. .....

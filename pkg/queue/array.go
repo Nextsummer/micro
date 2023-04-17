@@ -2,6 +2,8 @@ package queue
 
 import (
 	"encoding/json"
+	"fmt"
+	"github.com/Nextsummer/micro/pkg/utils"
 	"math/rand"
 	"sync"
 )
@@ -43,16 +45,14 @@ func (a *Array[T]) Remove(t T) {
 	a.Lock()
 	defer a.Unlock()
 
-	// todo To be solved
-	//if len(a.t) > 0 {
-	//	for i := range a.t {
-	//		sprintf1 := fmt.Sprintf("%v", a.t[i])
-	//		sprintf2 := fmt.Sprintf("%v", t)
-	//		if strings.EqualFold(sprintf1, sprintf2) {
-	//			a.t = append(a.t[:i], a.t[i+1:]...)
-	//		}
-	//	}
-	//}
+	if len(a.t) > 0 {
+		for i := 0; i < len(a.t); i++ {
+			if fmt.Sprintf("%v", a.t[i]) == fmt.Sprintf("%v", t) {
+				a.t = append(a.t[:i], a.t[i+1:]...)
+				break
+			}
+		}
+	}
 }
 
 func (a *Array[T]) RandomTake() (t T) {
@@ -101,10 +101,14 @@ func (a *Array[T]) Delete(i int) {
 }
 
 func (a *Array[T]) MarshalJSON() ([]byte, error) {
+	a.RWMutex.RLock()
+	defer a.RWMutex.RUnlock()
 	return json.Marshal(a.t)
 }
 
 func (a *Array[T]) UnmarshalJSON(b []byte) error {
+	a.RWMutex.Lock()
+	defer a.RWMutex.Unlock()
 	var tmp []T
 	if b == nil {
 		return nil
@@ -114,4 +118,10 @@ func (a *Array[T]) UnmarshalJSON(b []byte) error {
 	}
 	a.PutAll(tmp)
 	return nil
+}
+
+func (a *Array[T]) String() string {
+	a.RWMutex.RLock()
+	defer a.RWMutex.RUnlock()
+	return utils.ToJson(a.t)
 }

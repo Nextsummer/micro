@@ -113,3 +113,13 @@ message ServiceChangedRequest {
 message FetchServerAddressesResponse {
   repeated string serverAddresses = 1;
 }
+
+message TransferSlotsRequest {
+  int32 targetNodeId = 1;
+  string slots = 2;
+}
+
+message UpdateSlotsRequest {
+  int32 slotNo = 1;
+  bytes slotData = 2;
+}
