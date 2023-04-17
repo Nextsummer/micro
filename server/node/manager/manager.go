@@ -68,6 +68,15 @@ func (s *ServerNetworkManager) sendMessage(remoteNodeId int32, Type pkgrpc.Messa
 	return true
 }
 
+func (s *ServerNetworkManager) shutdownIO(remoteNodeId int32) {
+	ioThreadRunningSignal, ok := s.ioThreadRunningSignals.Get(remoteNodeId)
+	if ok {
+		ioThreadRunningSignal.SetIsRunning(false)
+		s.ioThreadRunningSignals.Remove(remoteNodeId)
+	}
+	s.sendQueues.Remove(remoteNodeId)
+}
+
 func ConnectAllControllerCandidates() bool {
 	configuration := config.GetConfigurationInstance()
 	servers := strings.Split(configuration.ControllerCandidateServers, ",")
@@ -172,7 +181,7 @@ func tryConnectServerNode(conn *grpc.ClientConn) (bool, error) {
 		return true, err
 	}
 
-	startServerIOThreads(remoteServerNode.GetNodeId(), messageClientStream)
+	startServerIO(remoteServerNode.GetNodeId(), messageClientStream)
 	addRemoteNodeClientStream(remoteServerNode.GetNodeId(), messageClientStream)
 	GetRemoteServerNodeManagerInstance().addRemoteServerNode(remoteServerNode)
 
@@ -180,7 +189,7 @@ func tryConnectServerNode(conn *grpc.ClientConn) (bool, error) {
 	log.Info.Printf("完成与远程server节点的连接：%v ......", string(remoteServerNodeInfoJson))
 
 	if IsController() {
-		//todo auto rebalance
+		rebalance(remoteServerNode.GetNodeId())
 	}
 	return false, nil
 }
@@ -209,7 +218,7 @@ func exchangeSelfInformation(client pkgrpc.MessageClient, close func()) (pkgrpc.
 	return *response.GetData(), response.GetSuccess()
 }
 
-func startServerIOThreads(remoteNodeId int32, messageClientStream pkgrpc.Message_SendClient) {
+func startServerIO(remoteNodeId int32, messageClientStream pkgrpc.Message_SendClient) {
 	sendQueue := queue.NewArray[pkgrpc.MessageEntity]()
 	manager := GetServerNetworkManagerInstance()
 	manager.sendQueues.Set(remoteNodeId, sendQueue)
@@ -228,9 +237,12 @@ func startReadIOThead(remoteNodeId int32, receiveQueue *queue.Array[pkgrpc.Messa
 		if err == io.EOF {
 			return
 		}
+
 		if err != nil {
 			log.Error.Printf("从节点[%v]读取数据时，发生未知IO异常: %v", remoteNodeId, err)
-			Fatal()
+			if status.Code(err) == codes.Unavailable {
+				GetHighAvailabilityManagerInstance().handleDisconnectedException(remoteNodeId)
+			}
 			return
 		}
 		if !response.GetSuccess() || response.GetResult() == nil {
@@ -325,8 +337,8 @@ func addRemoteNodeClientStream(remoteNodeId int32, client pkgrpc.Message_SendCli
 	GetServerNetworkManagerInstance().remoteNodeClientStream.Set(remoteNodeId, client)
 }
 
-func removeRemoteNodeClientStream(remoteNodeId int32) {
-	GetServerNetworkManagerInstance().remoteNodeClientStream.Remove(remoteNodeId)
+func (s *ServerNetworkManager) removeRemoteNodeClientStream(remoteNodeId int32) {
+	s.remoteNodeClientStream.Remove(remoteNodeId)
 }
 
 func getRemoteNodeClientStream(remoteNodeId int32) pkgrpc.Message_SendClient {
@@ -366,12 +378,12 @@ func (s *server) RemoteNodeInfo(ctx context.Context, remoteNodeInfo *pkgrpc.Remo
 		panic("new message client stream err: " + err.Error())
 	}
 
-	startServerIOThreads(remoteNodeInfo.GetNodeId(), messageClientStream)
+	startServerIO(remoteNodeInfo.GetNodeId(), messageClientStream)
 	addRemoteNodeClientStream(remoteNodeInfo.GetNodeId(), messageClientStream)
 	GetRemoteServerNodeManagerInstance().addRemoteServerNode(*remoteNodeInfo)
 
 	if IsController() {
-		// todo auto rebalance manager
+		rebalance(remoteNodeInfo.GetNodeId())
 	}
 	log.Info.Printf("连接监听线程已经跟远程server[%v]节点建立连接，IO协程全部启动...", remoteNodeInfo.GetNodeId())
 
@@ -403,7 +415,7 @@ func (s *server) Send(stream pkgrpc.Message_SendServer) error {
 			})
 		}
 		if err != nil {
-			log.Error.Fatalln("received message error, error msg: {}", err)
+			log.Error.Println("received message error, error msg: ", err)
 			return err
 		}
 

@@ -175,6 +175,7 @@ func (s *ServiceRegistry) GetData() []byte {
 	return utils.ToJsonByte(allServiceInstances)
 }
 
+// todo To be solved
 func (s *ServiceRegistry) HeartbeatCheck() {
 	configuration := config.GetConfigurationInstance()
 	var removeServiceInstanceIds []string
@@ -183,9 +184,10 @@ func (s *ServiceRegistry) HeartbeatCheck() {
 	for IsRunning() {
 		now := time.Now().Unix()
 
-		for iter := range s.serviceInstanceData.IterBuffered() {
-			serviceInstance := iter.Val
-			if int32(now-serviceInstance.latestHeartbeatTime) > configuration.HeartbeatTimeoutPeriod*1000 {
+		serviceInstanceData := s.serviceInstanceData
+		for _, key := range serviceInstanceData.Keys() {
+			serviceInstance, _ := serviceInstanceData.Get(key)
+			if int32(now-serviceInstance.latestHeartbeatTime) > configuration.HeartbeatTimeoutPeriod {
 				serviceInstances, ok := s.serviceRegistryData.Get(serviceInstance.serviceName)
 				if ok {
 					serviceInstances.Remove(serviceInstance)
@@ -196,7 +198,7 @@ func (s *ServiceRegistry) HeartbeatCheck() {
 			}
 		}
 		for i := range removeServiceInstanceIds {
-			s.serviceInstanceData.Remove(removeServiceInstanceIds[i])
+			serviceInstanceData.Remove(removeServiceInstanceIds[i])
 		}
 		if !s.isReplica {
 			changedServiceNamesIter := changedServiceNames.Iter()

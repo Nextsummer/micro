@@ -30,6 +30,7 @@ type Controller struct {
 	slotsReplicaAllocation cmap.ConcurrentMap[int32, *queue.Array[string]]
 	replicaNodeIds         cmap.ConcurrentMap[int32, int32]
 	startTimestamp         int64
+	sync.RWMutex
 }
 
 func getControllerInstance() *Controller {
@@ -87,7 +88,25 @@ func (c *Controller) allocateSlots() {
 
 // Initialize controller node data
 func (c *Controller) initControllerNode() {
-	SetControllerNodeId(config.GetConfigurationInstance().NodeId)
+	GetControllerNodeInstance().SetControllerNodeId(config.GetConfigurationInstance().NodeId)
+}
+
+func (c *Controller) setSlotsAllocation(slotsAllocation cmap.ConcurrentMap[int32, *queue.Array[string]]) {
+	c.Lock()
+	defer c.Unlock()
+	c.slotsAllocation = slotsAllocation
+}
+
+func (c *Controller) setSlotsReplicaAllocation(slotsReplicaAllocation cmap.ConcurrentMap[int32, *queue.Array[string]]) {
+	c.Lock()
+	defer c.Unlock()
+	c.slotsReplicaAllocation = slotsReplicaAllocation
+}
+
+func (c *Controller) setReplicaNodeIds(replicaNodeIds cmap.ConcurrentMap[int32, int32]) {
+	c.Lock()
+	defer c.Unlock()
+	c.replicaNodeIds = replicaNodeIds
 }
 
 // Calculate slot assignment data

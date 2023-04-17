@@ -116,7 +116,7 @@ func (a *Array[T]) UnmarshalJSON(b []byte) error {
 	if err := json.Unmarshal(b, &tmp); err != nil {
 		return err
 	}
-	a.PutAll(tmp)
+	a.t = append(a.t, tmp...)
 	return nil
 }
 

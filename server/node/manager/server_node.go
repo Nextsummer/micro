@@ -65,7 +65,7 @@ func Start() {
 			if !ok {
 				continue
 			}
-			SetControllerNodeId(controllerNodeId)
+			GetControllerNodeInstance().SetControllerNodeId(controllerNodeId)
 			break
 		}
 	}

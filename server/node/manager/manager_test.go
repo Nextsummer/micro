@@ -56,7 +56,7 @@ func TestGrpcClient(t *testing.T) {
 		log.Fatal("new message client stream err: ", err)
 	}
 
-	startServerIOThreads(2, messageClientStream)
+	startServerIO(2, messageClientStream)
 
 	for IsRunning() {
 		sendQueue, _ := GetServerNetworkManagerInstance().sendQueues.Get(2)
@@ -138,7 +138,7 @@ func TestSyncMap(t *testing.T) {
 }
 
 func TestSetControllerNodeId(t *testing.T) {
-	SetControllerNodeId(3)
+	GetControllerNodeInstance().SetControllerNodeId(3)
 
-	log.Println("node: ", getControllerNodeInstance().nodeId)
+	log.Println("node: ", GetControllerNodeInstance().nodeId)
 }

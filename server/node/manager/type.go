@@ -70,22 +70,26 @@ var controllerNode *ControllerNode
 // ControllerNode controller where node
 type ControllerNode struct {
 	nodeId int32
-	sync.Mutex
+	sync.RWMutex
 }
 
-func getControllerNodeInstance() *ControllerNode {
+func GetControllerNodeInstance() *ControllerNode {
 	controllerNodeOnce.Do(func() {
 		controllerNode = &ControllerNode{}
 	})
 	return controllerNode
 }
 
-func SetControllerNodeId(nodeId int32) {
-	getControllerNodeInstance().nodeId = nodeId
+func (c *ControllerNode) SetControllerNodeId(nodeId int32) {
+	c.RWMutex.Lock()
+	defer c.RWMutex.Unlock()
+	c.nodeId = nodeId
 }
 
-func IsControllerNode(nodeId int32) bool {
-	return getControllerNodeInstance().nodeId == nodeId
+func (c *ControllerNode) IsControllerNode(nodeId int32) bool {
+	c.RWMutex.RLock()
+	defer c.RWMutex.RUnlock()
+	return c.nodeId == nodeId
 }
 
 var nodeStatusOnce sync.Once
