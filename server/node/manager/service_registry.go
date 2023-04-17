@@ -135,7 +135,8 @@ func (s *ServiceRegistry) subscribe(clientConnectionId, serviceName string) *que
 	serviceChangedListeners, ok := s.serviceChangedListenerData.Get(serviceName)
 	if !ok {
 		s.RWMutex.Lock()
-		s.serviceChangedListenerData.Set(serviceName, queue.NewArray[*ServiceChangedListener]())
+		serviceChangedListeners = queue.NewArray[*ServiceChangedListener]()
+		s.serviceChangedListenerData.Set(serviceName, serviceChangedListeners)
 		s.RWMutex.Unlock()
 	}
 	serviceChangedListeners.Put(&ServiceChangedListener{clientConnectionId})

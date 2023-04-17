@@ -240,10 +240,15 @@ func (s *ServiceInstance) heartbeat() {
 			ServiceInstanceIp:   configuration.ServiceInstanceIp,
 			ServiceInstancePort: configuration.ServiceInstancePort,
 		}))
-		// todo The blocking problem needs to be solved！
-		s.sendRequest(request, *s.server)
+		GetServerMessageQueuesInstance().putRequest(s.serverConnection.connectionId, request)
 		log.Info.Println("Send heartbeat...")
-
+		for {
+			if !s.responses.Has(request.GetRequestId()) {
+				time.Sleep(RequestWaitSleepInterval)
+			}
+			break
+		}
+		s.responses.Remove(request.GetRequestId())
 		time.Sleep(time.Second * time.Duration(configuration.HeartbeatInterval))
 	}
 }

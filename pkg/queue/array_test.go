@@ -24,3 +24,13 @@ func TestClearAndClone(t *testing.T) {
 	log.Info.Printf("put after array: %v, len: %v, cap: %v", array, len(array.t), cap(array.t))
 
 }
+
+func TestArray_Remove(t *testing.T) {
+	array := Array[string]{}
+
+	array.Put("string1")
+	array.Put("string2")
+	array.Put("string3")
+
+	array.Remove("string1")
+}

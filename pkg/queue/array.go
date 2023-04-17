@@ -46,7 +46,9 @@ func (a *Array[T]) Remove(t T) {
 	// todo To be solved
 	//if len(a.t) > 0 {
 	//	for i := range a.t {
-	//		if strings.EqualFold(fmt.Sprintf("%v", a.t[i]), fmt.Sprintf("%v", t)) {
+	//		sprintf1 := fmt.Sprintf("%v", a.t[i])
+	//		sprintf2 := fmt.Sprintf("%v", t)
+	//		if strings.EqualFold(sprintf1, sprintf2) {
 	//			a.t = append(a.t[:i], a.t[i+1:]...)
 	//		}
 	//	}
