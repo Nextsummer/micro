@@ -3,9 +3,9 @@ package main
 import (
 	"flag"
 	"fmt"
+	"github.com/Nextsummer/micro/pkg/config"
 	"github.com/Nextsummer/micro/pkg/log"
-	"github.com/Nextsummer/micro/server/config"
-	"github.com/Nextsummer/micro/server/node/manager"
+	"github.com/Nextsummer/micro/pkg/node/manager"
 	"time"
 )
 

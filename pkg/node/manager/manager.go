@@ -5,10 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/Nextsummer/micro/pkg/config"
 	pkgrpc "github.com/Nextsummer/micro/pkg/grpc"
 	"github.com/Nextsummer/micro/pkg/log"
 	"github.com/Nextsummer/micro/pkg/queue"
-	"github.com/Nextsummer/micro/server/config"
 	"github.com/google/uuid"
 	cmap "github.com/orcaman/concurrent-map/v2"
 	"google.golang.org/grpc"
@@ -181,7 +181,7 @@ func tryConnectServerNode(conn *grpc.ClientConn) (bool, error) {
 		return true, err
 	}
 
-	startServerIO(remoteServerNode.GetNodeId(), messageClientStream)
+	startServerIO(remoteServerNode.GetNodeId(), messageClientStream, conn)
 	addRemoteNodeClientStream(remoteServerNode.GetNodeId(), messageClientStream)
 	GetRemoteServerNodeManagerInstance().addRemoteServerNode(remoteServerNode)
 
@@ -207,7 +207,6 @@ func exchangeSelfInformation(client pkgrpc.MessageClient, close func()) (pkgrpc.
 	})
 	if status.Code(err) == codes.Unavailable {
 		log.Info.Printf("远程server[%v]节点网络尚未初始化完毕，请稍等...", configuration.NodeIp)
-		close()
 		return pkgrpc.RemoteServerNode{}, false
 	}
 	if err != nil {
@@ -218,37 +217,46 @@ func exchangeSelfInformation(client pkgrpc.MessageClient, close func()) (pkgrpc.
 	return *response.GetData(), response.GetSuccess()
 }
 
-func startServerIO(remoteNodeId int32, messageClientStream pkgrpc.Message_SendClient) {
+func startServerIO(remoteNodeId int32, messageClientStream pkgrpc.Message_SendClient, conn *grpc.ClientConn) {
 	sendQueue := queue.NewArray[pkgrpc.MessageEntity]()
-	manager := GetServerNetworkManagerInstance()
-	manager.sendQueues.Set(remoteNodeId, sendQueue)
+	networkManager := GetServerNetworkManagerInstance()
+	networkManager.sendQueues.Set(remoteNodeId, sendQueue)
 
 	ioThreadRunning := &IOThreadRunningSignal{isRunning: true}
-	manager.ioThreadRunningSignals.Set(remoteNodeId, ioThreadRunning)
+	networkManager.ioThreadRunningSignals.Set(remoteNodeId, ioThreadRunning)
 
+	go func() {
+		<-messageClientStream.Context().Done()
+		conn.Close()
+
+		log.Error.Printf("The remote node [%d] actively disconnects from the network.", remoteNodeId)
+		GetHighAvailabilityManagerInstance().handleDisconnectedException(remoteNodeId)
+	}()
 	go startWriteIOThead(remoteNodeId, sendQueue, ioThreadRunning, messageClientStream)
-	go startReadIOThead(remoteNodeId, manager.receiveQueue, ioThreadRunning, messageClientStream)
+	go startReadIOThead(remoteNodeId, networkManager.receiveQueue, ioThreadRunning, messageClientStream)
 }
 
 func startReadIOThead(remoteNodeId int32, receiveQueue *queue.Array[pkgrpc.MessageEntity],
 	ioThreadRunning *IOThreadRunningSignal, stream pkgrpc.Message_SendClient) {
-	for IsRunning() && ioThreadRunning.IsRunning() {
+	running := IsRunning() && ioThreadRunning.IsRunning()
+	for running {
 		response, err := stream.Recv()
 		if err == io.EOF {
 			return
 		}
-
-		if err != nil {
-			log.Error.Printf("从节点[%v]读取数据时，发生未知IO异常: %v", remoteNodeId, err)
-			if status.Code(err) == codes.Unavailable {
-				GetHighAvailabilityManagerInstance().handleDisconnectedException(remoteNodeId)
+		if running {
+			if err != nil {
+				log.Error.Printf("从节点[%v]读取数据时，发生未知IO异常: %v", remoteNodeId, err)
+				if status.Code(err) == codes.Unavailable {
+					GetHighAvailabilityManagerInstance().handleDisconnectedException(remoteNodeId)
+				}
+				return
 			}
-			return
+			if !response.GetSuccess() || response.GetResult() == nil {
+				log.Error.Printf("从节点[%v]读取数据失败, error message: %v", remoteNodeId, response.GetSuccess())
+			}
+			receiveQueue.Put(*response.GetResult())
 		}
-		if !response.GetSuccess() || response.GetResult() == nil {
-			log.Error.Printf("从节点[%v]读取数据失败, error message: %v", remoteNodeId, response.GetSuccess())
-		}
-		receiveQueue.Put(*response.GetResult())
 	}
 }
 
@@ -256,8 +264,8 @@ func startWriteIOThead(remoteNodeId int32,
 	sendQueue *queue.Array[pkgrpc.MessageEntity],
 	ioThreadRunning *IOThreadRunningSignal,
 	stream pkgrpc.Message_SendClient) {
-
-	for IsRunning() && ioThreadRunning.IsRunning() {
+	running := IsRunning() && ioThreadRunning.IsRunning()
+	for running {
 		message, ok := sendQueue.Take()
 		if !ok {
 			continue
@@ -269,7 +277,6 @@ func startWriteIOThead(remoteNodeId int32,
 		}
 	}
 
-	log.Info.Printf("跟节点[%v]的网络连接的写IO协程，即将终止运行...", remoteNodeId)
 	if IsFatal() {
 		log.Info.Printf("跟节点[%v]的网络连接的写IO线程，遇到不可逆转的重大事故，系统即将崩溃...", remoteNodeId)
 	}
@@ -378,7 +385,7 @@ func (s *server) RemoteNodeInfo(ctx context.Context, remoteNodeInfo *pkgrpc.Remo
 		panic("new message client stream err: " + err.Error())
 	}
 
-	startServerIO(remoteNodeInfo.GetNodeId(), messageClientStream)
+	startServerIO(remoteNodeInfo.GetNodeId(), messageClientStream, conn)
 	addRemoteNodeClientStream(remoteNodeInfo.GetNodeId(), messageClientStream)
 	GetRemoteServerNodeManagerInstance().addRemoteServerNode(*remoteNodeInfo)
 
@@ -523,17 +530,17 @@ func (r *RemoteServerNodeManager) getController() pkgrpc.RemoteServerNode {
 // IOThreadRunningSignal io thread running signal
 type IOThreadRunningSignal struct {
 	isRunning bool
-	m         sync.RWMutex
+	sync.RWMutex
 }
 
 func (i *IOThreadRunningSignal) SetIsRunning(isRunning bool) {
-	i.m.Lock()
-	defer i.m.Unlock()
+	i.Lock()
+	defer i.Unlock()
 	i.isRunning = isRunning
 }
 
 func (i *IOThreadRunningSignal) IsRunning() bool {
-	i.m.RLock()
-	defer i.m.RUnlock()
+	i.RLock()
+	defer i.RUnlock()
 	return i.isRunning
 }

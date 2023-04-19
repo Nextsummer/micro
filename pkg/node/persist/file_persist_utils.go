@@ -1,8 +1,8 @@
 package persist
 
 import (
+	"github.com/Nextsummer/micro/pkg/config"
 	"github.com/Nextsummer/micro/pkg/log"
-	"github.com/Nextsummer/micro/server/config"
 	"os"
 )
 
@@ -14,7 +14,7 @@ func Persist(bytes []byte, filename string) bool {
 	var f *os.File
 	var err error
 	err = os.MkdirAll(dataDir, os.ModePerm)
-	f, err = os.OpenFile(dataDir+filename, os.O_CREATE|os.O_APPEND|os.O_RDWR, 0666)
+	f, err = os.OpenFile(dataDir+filename, os.O_CREATE|os.O_TRUNC|os.O_RDWR, 0666)
 	defer f.Close()
 	if err != nil {
 		log.Error.Println("persist file create or open error: ", err)

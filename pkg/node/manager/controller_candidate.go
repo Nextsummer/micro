@@ -2,12 +2,12 @@ package manager
 
 import (
 	"fmt"
+	"github.com/Nextsummer/micro/pkg/config"
 	pkgrpc "github.com/Nextsummer/micro/pkg/grpc"
 	"github.com/Nextsummer/micro/pkg/log"
+	"github.com/Nextsummer/micro/pkg/node/persist"
 	"github.com/Nextsummer/micro/pkg/queue"
 	"github.com/Nextsummer/micro/pkg/utils"
-	"github.com/Nextsummer/micro/server/config"
-	"github.com/Nextsummer/micro/server/node/persist"
 	cmap "github.com/orcaman/concurrent-map/v2"
 	"sync"
 )

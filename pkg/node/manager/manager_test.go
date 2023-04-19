@@ -4,12 +4,14 @@ import (
 	"context"
 	"fmt"
 	pkgrpc "github.com/Nextsummer/micro/pkg/grpc"
+	pklog "github.com/Nextsummer/micro/pkg/log"
 	"github.com/Nextsummer/micro/pkg/queue"
 	cmap "github.com/orcaman/concurrent-map/v2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/proto"
 	"log"
+
 	"net"
 	"testing"
 	"time"
@@ -56,7 +58,7 @@ func TestGrpcClient(t *testing.T) {
 		log.Fatal("new message client stream err: ", err)
 	}
 
-	startServerIO(2, messageClientStream)
+	startServerIO(2, messageClientStream, conn)
 
 	for IsRunning() {
 		sendQueue, _ := GetServerNetworkManagerInstance().sendQueues.Get(2)
@@ -141,4 +143,14 @@ func TestSetControllerNodeId(t *testing.T) {
 	GetControllerNodeInstance().SetControllerNodeId(3)
 
 	log.Println("node: ", GetControllerNodeInstance().nodeId)
+}
+
+func TestNewRegisterToServiceInstance(t *testing.T) {
+	pklog.InitLog("/temp")
+
+	registry := NewServiceRegistry(false)
+	registry.serviceInstanceData.Set("1", NewServiceInstance("center", "localhost", 8080))
+	registry.serviceInstanceData.Set("2", NewServiceInstance("center-2", "localhost", 8080))
+	serviceInstance, _ := registry.serviceInstanceData.Get("2")
+	fmt.Println(serviceInstance.String())
 }

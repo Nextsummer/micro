@@ -2,12 +2,12 @@ package manager
 
 import (
 	"fmt"
+	"github.com/Nextsummer/micro/pkg/config"
 	pkgrpc "github.com/Nextsummer/micro/pkg/grpc"
 	"github.com/Nextsummer/micro/pkg/log"
+	"github.com/Nextsummer/micro/pkg/node/persist"
 	"github.com/Nextsummer/micro/pkg/queue"
 	"github.com/Nextsummer/micro/pkg/utils"
-	"github.com/Nextsummer/micro/server/config"
-	"github.com/Nextsummer/micro/server/node/persist"
 	cmap "github.com/orcaman/concurrent-map/v2"
 	"sync"
 	"time"
@@ -192,6 +192,7 @@ func (c *Controller) persistReplicaNodeIds() bool {
 // Synchronize slots to allocate data to other controller candidates
 func (c *Controller) syncSlotsAllocation() {
 	slotsAllocationBytes := utils.ToJsonByte(c.slotsAllocation)
+	GetControllerCandidateInstance().slotsAllocation = c.slotsAllocation
 	for _, controllerCandidate := range GetRemoteServerNodeManagerInstance().getOtherControllerCandidates() {
 		GetServerNetworkManagerInstance().sendMessage(controllerCandidate.GetNodeId(),
 			pkgrpc.MessageEntity_SLOTS_ALLOCATION, slotsAllocationBytes)
@@ -200,8 +201,9 @@ func (c *Controller) syncSlotsAllocation() {
 	log.Info.Println("Slot assignment data is synchronized to controller candidate nodes!")
 }
 
-func (c *Controller) syncSlotsReplicaAllocation() {
+func (c *Controller) syncReplicaNodeIds() {
 	replicaNodeIdsBytes := utils.ToJsonByte(c.replicaNodeIds)
+	GetControllerCandidateInstance().replicaNodeIds = c.replicaNodeIds
 	for _, controllerCandidate := range GetRemoteServerNodeManagerInstance().getOtherControllerCandidates() {
 		GetServerNetworkManagerInstance().sendMessage(controllerCandidate.GetNodeId(),
 			pkgrpc.MessageEntity_REPLICA_NODE_IDS, replicaNodeIdsBytes)
@@ -209,8 +211,9 @@ func (c *Controller) syncSlotsReplicaAllocation() {
 	log.Info.Println("The replica node id set is synchronized to the controller candidate node!")
 }
 
-func (c *Controller) syncReplicaNodeIds() {
+func (c *Controller) syncSlotsReplicaAllocation() {
 	slotsReplicaAllocationBytes := utils.ToJsonByte(c.slotsReplicaAllocation)
+	GetControllerCandidateInstance().slotsReplicaAllocation = c.slotsReplicaAllocation
 	for _, controllerCandidate := range GetRemoteServerNodeManagerInstance().getOtherControllerCandidates() {
 		GetServerNetworkManagerInstance().sendMessage(controllerCandidate.GetNodeId(),
 			pkgrpc.MessageEntity_SLOTS_REPLICA_ALLOCATION, slotsReplicaAllocationBytes)

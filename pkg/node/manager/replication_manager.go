@@ -13,7 +13,7 @@ func ReplicationManager() {
 			}
 			serviceName := registerRequest.GetServiceName()
 			slotReplica := slotManager.GetSlotReplica(serviceName)
-			slotReplica.ServiceRegistry.Register(NewRegisterToServiceInstance(registerRequest))
+			slotReplica.ServiceRegistry.Register(NewRegisterToServiceInstance(&registerRequest))
 		}
 
 		for {
@@ -23,7 +23,7 @@ func ReplicationManager() {
 			}
 			serviceName := heartbeatRequest.GetServiceName()
 			slotReplica := slotManager.GetSlotReplica(serviceName)
-			slotReplica.ServiceRegistry.Heartbeat(NewHeartbeatToServiceInstance(heartbeatRequest))
+			slotReplica.ServiceRegistry.Heartbeat(NewHeartbeatToServiceInstance(&heartbeatRequest))
 		}
 	}
 

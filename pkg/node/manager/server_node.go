@@ -1,8 +1,8 @@
 package manager
 
 import (
+	"github.com/Nextsummer/micro/pkg/config"
 	"github.com/Nextsummer/micro/pkg/log"
-	"github.com/Nextsummer/micro/server/config"
 )
 
 func Start() {

@@ -2,11 +2,11 @@ package manager
 
 import (
 	"fmt"
+	"github.com/Nextsummer/micro/pkg/config"
 	pkgrpc "github.com/Nextsummer/micro/pkg/grpc"
 	"github.com/Nextsummer/micro/pkg/log"
 	"github.com/Nextsummer/micro/pkg/queue"
 	"github.com/Nextsummer/micro/pkg/utils"
-	"github.com/Nextsummer/micro/server/config"
 	cmap "github.com/orcaman/concurrent-map/v2"
 )
 
@@ -37,7 +37,7 @@ func register(request *pkgrpc.MessageEntity) *pkgrpc.MessageResponse {
 
 	slotManager := GetSlotManagerInstance()
 	slot := slotManager.getSlot(serviceName)
-	slot.ServiceRegistry.Register(NewRegisterToServiceInstance(registerRequest))
+	slot.ServiceRegistry.Register(NewRegisterToServiceInstance(&registerRequest))
 	log.Info.Printf("Complete the registration of the service instance [%s]", serviceName)
 
 	// Construct the replica registration request and forward it to the specified node.
@@ -66,9 +66,9 @@ func subscribe(clientConnectionId string, request *pkgrpc.MessageEntity) *pkgrpc
 	var serviceInstanceAddresses []string
 	for i := range serviceInstances {
 		serviceInstance := serviceInstances[i]
-		serviceInstanceAddresses = append(serviceInstanceAddresses, fmt.Sprintf("%s,%s,%d", serviceInstance.serviceName, serviceInstance.serviceInstanceIp, serviceInstance.serviceInstancePort))
+		serviceInstanceAddresses = append(serviceInstanceAddresses, fmt.Sprintf("%s,%s,%d", serviceInstance.ServiceName, serviceInstance.ServiceInstanceIp, serviceInstance.ServiceInstancePort))
 	}
-	log.Info.Printf("Client [%d] subscribe service [%s] :%s", clientConnectionId, serviceName, serviceInstances)
+	log.Info.Printf("Client [%s] subscribe service [%s] :%s", clientConnectionId, serviceName, serviceInstances)
 	return &pkgrpc.MessageResponse{
 		Success: true,
 		Result: &pkgrpc.MessageEntity{
@@ -125,7 +125,7 @@ func heartbeat(request *pkgrpc.MessageEntity) *pkgrpc.MessageResponse {
 
 	slotManager := GetSlotManagerInstance()
 	slot := slotManager.getSlot(serviceName)
-	slot.ServiceRegistry.Heartbeat(NewHeartbeatToServiceInstance(heartbeatRequest))
+	slot.ServiceRegistry.Heartbeat(NewHeartbeatToServiceInstance(&heartbeatRequest))
 
 	GetServerNetworkManagerInstance().sendMessage(slotManager.slots.replicaNodeId, pkgrpc.MessageEntity_REPLICA_HEARTBEAT, utils.Encode(&pkgrpc.RegisterRequest{
 		ServiceName:         serviceName,

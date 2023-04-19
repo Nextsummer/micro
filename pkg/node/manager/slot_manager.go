@@ -3,9 +3,9 @@ package manager
 import (
 	pkgrpc "github.com/Nextsummer/micro/pkg/grpc"
 	"github.com/Nextsummer/micro/pkg/log"
+	"github.com/Nextsummer/micro/pkg/node/persist"
 	"github.com/Nextsummer/micro/pkg/queue"
 	"github.com/Nextsummer/micro/pkg/utils"
-	"github.com/Nextsummer/micro/server/node/persist"
 	cmap "github.com/orcaman/concurrent-map/v2"
 	"strconv"
 	"strings"
