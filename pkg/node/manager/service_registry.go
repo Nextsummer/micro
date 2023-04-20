@@ -14,10 +14,10 @@ import (
 )
 
 type ServiceInstance struct {
-	ServiceName         string
-	ServiceInstanceIp   string
-	ServiceInstancePort int32
-	LatestHeartbeatTime int64
+	ServiceName         string `json:"serviceName"`
+	ServiceInstanceIp   string `json:"serviceInstanceIp"`
+	ServiceInstancePort int32  `json:"serviceInstancePort"`
+	LatestHeartbeatTime int64  `json:"latestHeartbeatTime"`
 }
 
 func NewServiceInstance(serviceName, serviceInstanceIp string, serviceInstancePort int32) *ServiceInstance {

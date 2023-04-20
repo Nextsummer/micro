@@ -62,7 +62,7 @@ func process(conn net.Conn) {
 			}
 			message := &pkgrpc.MessageEntity{}
 			_ = utils.Decode(requestBodyBytes, message)
-			log.Info.Println("Receive to client message: ", utils.ToJson(message))
+			//log.Info.Println("Receive to client message: ", utils.ToJson(message))
 			response := processRequest(connection.ConnectionId, message)
 			GetClientMessageQueuesInstance().putMessage(connection.ConnectionId, response)
 		}
@@ -80,7 +80,7 @@ func process(conn net.Conn) {
 					break
 				}
 				_, err := conn.Write(utils.Encode(&response))
-				log.Info.Println("Write response data to client: ", utils.ToJson(response))
+				//log.Info.Println("Write response data to client: ", utils.ToJson(response))
 				if err != nil {
 					log.Error.Println("Client io server process write response failed, err: ", err)
 					return

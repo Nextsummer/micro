@@ -22,7 +22,7 @@ func Encode(m proto.Message) []byte {
 func Decode(data []byte, messageEntity proto.Message) error {
 	err := proto.Unmarshal(data, messageEntity)
 	if err != nil {
-		log.Warn.Println("Service message deserialization failed when received, error msg: ", err)
+		//log.Warn.Println("Service message deserialization failed when received, error msg: ", err)
 		return err
 	}
 	return nil
