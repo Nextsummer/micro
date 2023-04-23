@@ -45,8 +45,19 @@ func getControllerInstance() *Controller {
 	return controllerInstance
 }
 
+func (c *Controller) allocateSingleSlots() {
+	c.initSingleSlotsAllocation()
+
+	if !c.persistSlotsAllocation() {
+		Fatal()
+		return
+	}
+
+	c.initSlots()
+}
+
 // Assign slots to all master machines
-func (c *Controller) allocateSlots() {
+func (c *Controller) allocateClusterSlots() {
 	c.executeSlotsAllocation()
 
 	// For the slot range for which each node is responsible, the copy of the slot range is calculated to assign to the other node.
@@ -83,7 +94,6 @@ func (c *Controller) allocateSlots() {
 	// It also initializes and persists a copy of the slot scope for which it is responsible.
 	c.sendNodeSlotsReplicas()
 	c.sendReplicaNodeId()
-
 }
 
 // Initialize controller node data
@@ -107,6 +117,14 @@ func (c *Controller) setReplicaNodeIds(replicaNodeIds cmap.ConcurrentMap[int32, 
 	c.Lock()
 	defer c.Unlock()
 	c.replicaNodeIds = replicaNodeIds
+}
+
+func (c *Controller) initSingleSlotsAllocation() {
+
+	slotsList := queue.NewArray[string]()
+	slotsList.Put(fmt.Sprintf("%d,%d", 1, SlotsCount))
+	c.slotsAllocation.Set(config.GetConfigurationInstance().NodeId, slotsList)
+	log.Info.Println("Receive slots allocated data : ", utils.ToJson(c.slotsAllocation))
 }
 
 // Calculate slot assignment data

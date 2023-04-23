@@ -89,8 +89,16 @@ func (s *ServiceRegistry) Register(serviceInstance *ServiceInstance) {
 		s.serviceRegistryData.Set(serviceName, serviceInstances)
 		s.Unlock()
 	}
-	serviceInstances.Put(serviceInstance)
+	for _, instanceStore := range serviceInstances.Iter() {
+		if instanceStore.ServiceInstanceIp == serviceInstance.ServiceInstanceIp &&
+			instanceStore.ServiceInstancePort == serviceInstance.ServiceInstancePort {
+			s.Heartbeat(serviceInstance)
+			return
+		}
+	}
 
+	serviceInstances.Put(serviceInstance)
+	s.serviceRegistryData.Set(serviceName, serviceInstances)
 	s.serviceInstanceData.Set(serviceInstance.getServiceInstanceId(), serviceInstance)
 	if !s.isReplica {
 		serviceChangedListeners, ok := s.serviceChangedListenerData.Get(serviceName)
@@ -127,7 +135,7 @@ func (s *ServiceRegistry) Heartbeat(serviceInstance *ServiceInstance) {
 	}
 	serviceInstanceTemp.LatestHeartbeatTime = time.Now().Unix()
 	s.serviceInstanceData.Set(serviceInstanceId, serviceInstanceTemp)
-	log.Info.Printf("Received to %s heartbeat.", serviceInstance.getServiceInstanceId())
+	//log.Info.Printf("Received to %s heartbeat.", serviceInstance.getServiceInstanceId())
 }
 
 // Service subscription
@@ -174,7 +182,6 @@ func (s *ServiceRegistry) GetData() []byte {
 	return utils.ToJsonByte(allServiceInstances)
 }
 
-// TODO To be solved
 func (s *ServiceRegistry) HeartbeatCheck() {
 	configuration := config.GetConfigurationInstance()
 	var removeServiceInstanceIds []string
@@ -183,7 +190,8 @@ func (s *ServiceRegistry) HeartbeatCheck() {
 	for IsRunning() {
 		now := time.Now().Unix()
 
-		for _, key := range s.serviceInstanceData.Keys() {
+		serviceInstanceData := s.serviceInstanceData.Keys()
+		for _, key := range serviceInstanceData {
 			serviceInstance, _ := s.serviceInstanceData.Get(key)
 			serviceName := serviceInstance.ServiceName
 			if int32(now-serviceInstance.LatestHeartbeatTime) > configuration.HeartbeatTimeoutPeriod {
@@ -191,7 +199,7 @@ func (s *ServiceRegistry) HeartbeatCheck() {
 				if ok && !serviceInstances.IsEmpty() {
 					serviceInstances.Remove(serviceInstance)
 					s.serviceRegistryData.Set(serviceName, serviceInstances)
-					removeServiceInstanceIds = append(removeServiceInstanceIds, serviceName)
+					removeServiceInstanceIds = append(removeServiceInstanceIds, serviceInstance.getServiceInstanceId())
 					changedServiceNames.Add(serviceInstance.getServiceInstanceId())
 					log.Warn.Printf("No heartbeat is reported for the service instance within %d seconds, it has been removed: %v", configuration.HeartbeatTimeoutPeriod, utils.ToJson(serviceInstance))
 				}

@@ -55,6 +55,20 @@ func (a *Array[T]) Remove(t T) {
 	}
 }
 
+func (a *Array[T]) Contains(t T) bool {
+	a.RWMutex.Lock()
+	defer a.RWMutex.Unlock()
+
+	if len(a.t) > 0 {
+		for i := 0; i < len(a.t); i++ {
+			if fmt.Sprintf("%v", a.t[i]) == fmt.Sprintf("%v", t) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func (a *Array[T]) RandomTake() (t T) {
 	a.Lock()
 	defer a.Unlock()

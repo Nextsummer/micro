@@ -40,12 +40,14 @@ func register(request *pkgrpc.MessageEntity) *pkgrpc.MessageResponse {
 	slot.ServiceRegistry.Register(NewRegisterToServiceInstance(&registerRequest))
 	log.Info.Printf("Complete the registration of the service instance [%s]", serviceName)
 
-	// Construct the replica registration request and forward it to the specified node.
-	GetServerNetworkManagerInstance().sendMessage(slotManager.slots.replicaNodeId, pkgrpc.MessageEntity_REPLICA_REGISTER, utils.Encode(&pkgrpc.RegisterRequest{
-		ServiceName:         serviceName,
-		ServiceInstanceIp:   registerRequest.GetServiceInstanceIp(),
-		ServiceInstancePort: registerRequest.GetServiceInstancePort(),
-	}))
+	if config.IsClusterDeployment() {
+		// Construct the replica registration request and forward it to the specified node.
+		GetServerNetworkManagerInstance().sendMessage(slotManager.slots.replicaNodeId, pkgrpc.MessageEntity_REPLICA_REGISTER, utils.Encode(&pkgrpc.RegisterRequest{
+			ServiceName:         serviceName,
+			ServiceInstanceIp:   registerRequest.GetServiceInstanceIp(),
+			ServiceInstancePort: registerRequest.GetServiceInstancePort(),
+		}))
+	}
 
 	return &pkgrpc.MessageResponse{
 		Success: true,
@@ -68,7 +70,7 @@ func subscribe(clientConnectionId string, request *pkgrpc.MessageEntity) *pkgrpc
 		serviceInstance := serviceInstances[i]
 		serviceInstanceAddresses = append(serviceInstanceAddresses, fmt.Sprintf("%s,%s,%d", serviceInstance.ServiceName, serviceInstance.ServiceInstanceIp, serviceInstance.ServiceInstancePort))
 	}
-	log.Info.Printf("Client [%s] subscribe service [%s] :%s", clientConnectionId, serviceName, serviceInstances)
+	log.Info.Printf("Client [%s] subscribe service [%s] :%s", clientConnectionId, serviceName, serviceInstanceAddresses)
 	return &pkgrpc.MessageResponse{
 		Success: true,
 		Result: &pkgrpc.MessageEntity{
@@ -127,11 +129,13 @@ func heartbeat(request *pkgrpc.MessageEntity) *pkgrpc.MessageResponse {
 	slot := slotManager.getSlot(serviceName)
 	slot.ServiceRegistry.Heartbeat(NewHeartbeatToServiceInstance(&heartbeatRequest))
 
-	GetServerNetworkManagerInstance().sendMessage(slotManager.slots.replicaNodeId, pkgrpc.MessageEntity_REPLICA_HEARTBEAT, utils.Encode(&pkgrpc.RegisterRequest{
-		ServiceName:         serviceName,
-		ServiceInstanceIp:   heartbeatRequest.GetServiceInstanceIp(),
-		ServiceInstancePort: heartbeatRequest.GetServiceInstancePort(),
-	}))
+	if config.IsClusterDeployment() {
+		GetServerNetworkManagerInstance().sendMessage(slotManager.slots.replicaNodeId, pkgrpc.MessageEntity_REPLICA_HEARTBEAT, utils.Encode(&pkgrpc.RegisterRequest{
+			ServiceName:         serviceName,
+			ServiceInstanceIp:   heartbeatRequest.GetServiceInstanceIp(),
+			ServiceInstancePort: heartbeatRequest.GetServiceInstancePort(),
+		}))
+	}
 	return &pkgrpc.MessageResponse{
 		Success: true,
 		Result:  &pkgrpc.MessageEntity{RequestId: request.GetRequestId()},

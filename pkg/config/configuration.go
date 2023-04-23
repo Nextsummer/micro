@@ -26,6 +26,13 @@ const (
 	DefaultHeartbeatTimeoutPeriod = 5
 )
 
+type DeploymentType string
+
+const (
+	Single  DeploymentType = "single"
+	Cluster DeploymentType = "cluster"
+)
+
 var configurationOnce sync.Once
 var singleton *Configuration
 
@@ -41,6 +48,7 @@ type Configuration struct {
 	ControllerCandidateServers string //controller候选节点的机器列表
 	HeartbeatCheckInterval     int32  //心跳检查时间间隔
 	HeartbeatTimeoutPeriod     int32  //心跳超时时间
+	DeploymentType
 }
 
 func GetConfigurationInstance() *Configuration {
@@ -61,8 +69,9 @@ func Parse(configPath string) {
 	configuration.NodeClientTcpPort = validateNodeClientTcpPort(configMap[NodeClientTcpPort])
 	configuration.IsControllerCandidate = validateIsControllerCandidate(configMap[IsControllerCandidate])
 	configuration.DataDir = validateDataDir(configMap[DataDir])
-	configuration.ClusterNodeCount = validateClusterNodeCount(configMap[ClusterNodeCount])
-	configuration.ControllerCandidateServers = validateControllerCandidateServers(configMap[ControllerCandidateServers])
+	configuration.DeploymentType = checkDeploymentType()
+	configuration.ClusterNodeCount = validateClusterNodeCount(configMap[ClusterNodeCount], configuration.IsControllerCandidate, configuration.DeploymentType)
+	configuration.ControllerCandidateServers = validateControllerCandidateServers(configMap[ControllerCandidateServers], configuration.DeploymentType)
 	configuration.HeartbeatCheckInterval = validateHeartbeatCheckInterval(configMap[HeartbeatCheckInterval])
 	configuration.HeartbeatTimeoutPeriod = validateHeartbeatTimeoutPeriod(configMap[HeartbeatTimeoutPeriod])
 }
@@ -111,12 +120,11 @@ func validateIsControllerCandidate(isControllerCandidate any) bool {
 }
 
 // 校验集群节点总数量
-func validateClusterNodeCount(clusterNodesCount any) int32 {
-	isControllerCandidate := GetConfigurationInstance().IsControllerCandidate
-	if isControllerCandidate {
+func validateClusterNodeCount(clusterNodesCount any, isControllerCandidate bool, deploymentType DeploymentType) int32 {
+	if isControllerCandidate && deploymentType == Cluster {
 		return utils.ValidateIntType(clusterNodesCount, ClusterNodeCount)
 	}
-	return 0
+	return 1
 }
 
 // 校验数据存储目录配置项
@@ -124,8 +132,20 @@ func validateDataDir(dataDir any) string {
 	return utils.ValidateStringType(dataDir, DataDir)
 }
 
+// check deployment type
+func checkDeploymentType() DeploymentType {
+	otherControllerCandidateServers := GetOtherControllerCandidateServers()
+	if len(otherControllerCandidateServers) == 0 {
+		return Single
+	}
+	return Cluster
+}
+
 // 校验controller候选节点机器列表
-func validateControllerCandidateServers(controllerCandidateServers any) string {
+func validateControllerCandidateServers(controllerCandidateServers any, deploymentType DeploymentType) string {
+	if Single == deploymentType {
+		return ""
+	}
 	controllerCandidateServersStr := utils.ValidateStringType(controllerCandidateServers, ControllerCandidateServers)
 	controllerCandidateServersStrSplit := strings.Split(controllerCandidateServersStr, ",")
 	for _, controllerCandidateServer := range controllerCandidateServersStrSplit {
@@ -163,17 +183,24 @@ func PrintConfigLog() {
 	log.Info.Printf("[%s]=%d", ClusterNodeCount, configuration.ClusterNodeCount)
 	log.Info.Printf("[%s]=%s", DataDir, configuration.DataDir)
 	log.Info.Printf("[%s]=%s", ControllerCandidateServers, configuration.ControllerCandidateServers)
+	log.Info.Printf("[%s]=%s", "deployment.type", configuration.DeploymentType)
 	log.Info.Printf("[%s]=%d", HeartbeatCheckInterval, configuration.HeartbeatCheckInterval)
 	log.Info.Printf("[%s]=%d", HeartbeatTimeoutPeriod, configuration.HeartbeatTimeoutPeriod)
+}
+
+func IsClusterDeployment() bool {
+	return GetConfigurationInstance().DeploymentType == Cluster
 }
 
 // GetOtherControllerCandidateServers 获取除自己以外的其他controller候选节点的地址
 func GetOtherControllerCandidateServers() (otherControllerCandidateServers []string) {
 	configuration := GetConfigurationInstance()
+	controllerCandidateServers := configuration.ControllerCandidateServers
+	if len(controllerCandidateServers) == 0 {
+		return
+	}
 	nodeIp := configuration.NodeIp
 	nodeInternTcpPort := configuration.NodeInternTcpPort
-	controllerCandidateServers := configuration.ControllerCandidateServers
-
 	controllerCandidateServersSplit := strings.Split(controllerCandidateServers, ",")
 
 	for _, controllerCandidateServer := range controllerCandidateServersSplit {

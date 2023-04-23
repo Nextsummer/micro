@@ -286,9 +286,7 @@ func StartServerConnectionListener() {
 	s := &ServerConnectionListener{
 		retries: 0,
 	}
-	go func() {
-		s.run()
-	}()
+	go s.run()
 }
 
 type ServerConnectionListener struct {

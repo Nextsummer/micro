@@ -6,6 +6,23 @@ import (
 )
 
 func Start() {
+	if config.IsClusterDeployment() {
+		startCluster()
+	} else {
+		startSingle()
+	}
+}
+
+func startSingle() {
+	controller := getControllerInstance()
+	controller.allocateSingleSlots()
+	controller.initControllerNode()
+
+	SetServerNodeRole(1)
+	StartClientIO()
+}
+
+func startCluster() {
 	StartServerConnectionListener()
 
 	configuration := config.GetConfigurationInstance()
@@ -44,7 +61,7 @@ func Start() {
 			if serverNodeRole == controller {
 				isController = true
 				controller := getControllerInstance()
-				controller.allocateSlots()
+				controller.allocateClusterSlots()
 				controller.initControllerNode()
 				sendControllerNodeId()
 			} else if serverNodeRole == candidate {

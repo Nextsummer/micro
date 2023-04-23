@@ -38,12 +38,6 @@ func networkIO(listen net.Listener) {
 }
 
 func process(conn net.Conn) {
-	defer func(conn net.Conn) {
-		if err := recover(); err != nil {
-			log.Error.Println("Client io server conn process error, err: ", err)
-			conn.Close()
-		}
-	}(conn)
 
 	connection := NewClientConnection(conn)
 	GetClientConnectionManagerInstance().clientConnections.Put(connection)
@@ -58,6 +52,7 @@ func process(conn net.Conn) {
 			}
 			if err != nil {
 				log.Error.Println("Client io server connection client exception, err: ", err)
+				conn.Close()
 				return
 			}
 			message := &pkgrpc.MessageEntity{}
