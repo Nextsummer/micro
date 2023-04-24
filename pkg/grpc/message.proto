@@ -48,13 +48,14 @@ message MessageEntity {
     TRANSFER_SLOTS = 17;            // Transfer slot data to slots
     UPDATE_SLOTS = 18;              // Transfer slot data to slots
 
-    CLIENT_FETCH_SLOTS_ALLOCATION = 101; // Pull the slots allocation data request
-    CLIENT_FETCH_SERVER_ADDRESSES = 102; // Pull the server node address list request
-    CLIENT_REGISTER = 103;               // Client registration request
-    CLIENT_HEARTBEAT = 104;              // Client heartbeat request
-    CLIENT_FETCH_SERVER_NODE_ID = 105;   // Pull server node id
-    CLIENT_SUBSCRIBE = 106;              // Subscribe service
-    CLIENT_SERVICE_CHANGED = 107;        // Service instance changed
+    CLIENT_FETCH_SLOTS_ALLOCATION = 101;    // Pull the slots allocation data request
+    CLIENT_FETCH_SERVER_ADDRESSES = 102;    // Pull the server node address list request
+    CLIENT_REGISTER = 103;                  // Client registration request
+    CLIENT_HEARTBEAT = 104;                 // Client heartbeat request
+    CLIENT_FETCH_SERVER_NODE_ID = 105;      // Pull server node id
+    CLIENT_SUBSCRIBE = 106;                 // Subscribe service
+    CLIENT_SERVICE_CHANGED = 107;           // Service instance changed
+    CLIENT_FETCH_SERVICE_REGISTER_ADDRESSES = 108;  // Fetch all service register addresses
   }
   string requestId = 1;
   MessageType type = 2;
@@ -122,4 +123,20 @@ message TransferSlotsRequest {
 message UpdateSlotsRequest {
   int32 slotNo = 1;
   bytes slotData = 2;
+}
+
+
+message FetchServiceRegisterInfoRequest {
+  string serviceName = 1;
+}
+
+message FetchServiceRegisterInfoResponse {
+  repeated FetchServiceRegisterInfo info = 1;
+}
+
+message FetchServiceRegisterInfo {
+  string serviceName = 1;
+  string serviceInstanceIp = 2;
+  int32 serviceInstancePort = 3;
+  int64 latestHeartbeatTime = 4;
 }

@@ -24,6 +24,8 @@ func processRequest(clientConnectionId string, request *pkgrpc.MessageEntity) (r
 		response = fetchServerNodeId(request)
 	} else if pkgrpc.MessageEntity_CLIENT_SUBSCRIBE == messageType {
 		response = subscribe(clientConnectionId, request)
+	} else if pkgrpc.MessageEntity_CLIENT_FETCH_SERVICE_REGISTER_ADDRESSES == messageType {
+		response = fetchServiceRegisterAddresses(request)
 	} else {
 		response = &pkgrpc.MessageResponse{Success: false, Message: "This message type has not yet been implemented, please reselect!"}
 	}
@@ -139,5 +141,37 @@ func heartbeat(request *pkgrpc.MessageEntity) *pkgrpc.MessageResponse {
 	return &pkgrpc.MessageResponse{
 		Success: true,
 		Result:  &pkgrpc.MessageEntity{RequestId: request.GetRequestId()},
+	}
+}
+
+func fetchServiceRegisterAddresses(request *pkgrpc.MessageEntity) *pkgrpc.MessageResponse {
+	fetchServiceRegisterInfoRequest := pkgrpc.FetchServiceRegisterInfoRequest{}
+	_ = utils.Decode(request.GetData(), &fetchServiceRegisterInfoRequest)
+	serviceName := fetchServiceRegisterInfoRequest.GetServiceName()
+
+	registerServiceInfo := GetSlotManagerInstance().getSlot(serviceName).
+		ServiceRegistry.GetRegisterService(serviceName)
+
+	var fetchServiceRegisterInfo []*pkgrpc.FetchServiceRegisterInfo
+	for _, value := range registerServiceInfo {
+		for _, instance := range value {
+			fetchServiceRegisterInfo = append(fetchServiceRegisterInfo, &pkgrpc.FetchServiceRegisterInfo{
+				ServiceName:         instance.ServiceName,
+				ServiceInstanceIp:   instance.ServiceInstanceIp,
+				ServiceInstancePort: instance.ServiceInstancePort,
+				LatestHeartbeatTime: instance.LatestHeartbeatTime,
+			})
+		}
+	}
+
+	return &pkgrpc.MessageResponse{
+		Success: true,
+		Result: &pkgrpc.MessageEntity{
+			RequestId: request.GetRequestId(),
+			Data: utils.Encode(&pkgrpc.FetchServiceRegisterInfoResponse{
+				Info: fetchServiceRegisterInfo,
+			},
+			),
+		},
 	}
 }

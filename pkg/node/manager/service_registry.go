@@ -182,6 +182,21 @@ func (s *ServiceRegistry) GetData() []byte {
 	return utils.ToJsonByte(allServiceInstances)
 }
 
+func (s *ServiceRegistry) GetRegisterService(serviceName string) map[string][]*ServiceInstance {
+	registerInfo := make(map[string][]*ServiceInstance)
+	if len(serviceName) == 0 {
+		for data := range s.serviceRegistryData.IterBuffered() {
+			registerInfo[data.Key] = data.Val.Iter()
+		}
+	} else {
+		serviceInstances, ok := s.serviceRegistryData.Get(serviceName)
+		if ok {
+			registerInfo[serviceName] = serviceInstances.Iter()
+		}
+	}
+	return registerInfo
+}
+
 func (s *ServiceRegistry) HeartbeatCheck() {
 	configuration := config.GetConfigurationInstance()
 	var removeServiceInstanceIds []string
